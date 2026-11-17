@@ -114,6 +114,36 @@ Leaving these conditions unenforced would let an unvalidated document masquerade
 
 ---
 
+### 3.5 F-1 — Two-view management design (founder-approved management direction)
+
+**Founder direction, 2026-11-17.** Recorded as a **founder-approved management design direction — not a final statutory accounting policy.**
+
+| # | Approved element |
+|---|---|
+| 1 | **Commercial Management View** — recognise **both revenue and COGS on the order date**, using the applicable cost snapshot, explicitly labelled as an order-date management measure. **Founder's preferred primary view.** |
+| 2 | **Fulfilment View** — recognise **both revenue and COGS on the shipment date**, using the shipment cost snapshot. Available separately. |
+| 3 | **Preserve the original order and shipment events and their timestamps.** Neither view may overwrite or discard the date the other depends on. |
+| 4 | **Statutory accounting treatment remains separately identified and subject to professional accounting review.** Neither management view establishes statutory compliance. |
+
+**What this resolves.** Cross-decision finding F-1 (`g0-g2-decision-preparation.md`): D-06 placed revenue on the order date while D-07 placed COGS on the shipment date, so a period could show revenue at full margin with its cost landing in the next period. Pairing revenue with COGS on a single event date, per view, removes that mismatch *within* each view.
+
+**What this does not resolve.**
+
+- **D-06 and D-07 remain unapproved as accounting policies.** This is a management-information direction, not a recognition policy.
+- **The difference between the two views must never be presented as final realised contribution profit.** A Commercial Management View figure where fulfilment has not occurred is not realised.
+- **Neither view may be labelled "contribution profit" without a view qualifier.**
+
+**Engine and schema consequences (design requirements, not implemented):**
+
+1. A calculation must carry its **view** (`commercial` | `fulfilment`) as part of its identity, alongside period and calculation version. A snapshot from one view must never be silently compared with, aggregated into, or substituted for the other.
+2. Both views must be derivable from the **same preserved events**. If a view requires data the other discards, the design is wrong.
+3. Order-date COGS uses the **applicable cost snapshot at order date**; shipment-date COGS uses the **shipment-date snapshot**. A COGS revision between those dates legitimately produces different figures in each view — that is expected, not an error, and must be traceable to the two snapshots.
+4. View is a **reporting dimension**, not a mutation: neither view writes over the other's results.
+
+**Dependencies and remaining gates:** D-06 and D-07 still block **G2** (§5); statutory treatment stays in the professional review register (§6); the view dimension must exist in the G2 schema before any merchant-visible profitability (G3).
+
+---
+
 ## 4. Provider verification — P-01 to P-05
 
 Verification work was **authorised by the founder and executed on 2026-11-17 as documentation research only**. Every finding below is drawn from official provider documentation read during that work. **No API call was made, no credential was used, and no merchant, sandbox or production account was connected.** A documented field is not proof of live behaviour in a merchant's account.
@@ -284,7 +314,11 @@ Official provider documentation and specifications only; recorded example payloa
 
 ### 4.9 F-01 — Shopify refund fixture specification (authorised, not executed)
 
-**Status: AUTHORISED FOR PREPARATION — NOT EXECUTED.** No merchant store was connected and no live payload was captured. This is a specification only.
+**Status: PROCEDURE WRITTEN — NOT EXECUTED. F-01, D-09 and the affected part of INV-02 remain OPEN.** No merchant store was connected, no token requested and no live payload captured.
+
+**Route chosen by the founder (2026-11-17): route B** — the founder will run the capture in their own Shopify development store and supply the redacted payload. The founder has confirmed they **do not currently have access to a development store**; no account may be created on their behalf and no production store or credentials may be used.
+
+**The standalone procedure is written:** `docs/governance/f01-shopify-refund-evidence-capture-procedure.md`. It specifies development-store requirements, the discounted test-order scenario, the partial-refund steps, the pinned API version and endpoint, the exact fields to capture, redaction, validation that the fixture is genuine, minimum access scopes, safe storage and the decision table that interprets the result. It is the operative document; the coverage list below remains the requirement it satisfies.
 
 **Two fixture classes that must never be conflated:**
 
@@ -324,9 +358,9 @@ The following must be decided by the founder before the named gate can open. Eac
 
 **Already deferred:** D-14, on the three conditions in §3.1.
 
-**Resolved since this register was created:** the canonical product name is fixed (see the header note). P-01–P-05 documentation research is complete per §4, and manual Meta billing evidence is approved with conditions (§3.4). **Still required:** the F-01 provider evidence fixture (§4.9), and the deferred live Supabase checks (§4.6.1) once G0 settles.
+**Resolved since this register was created:** the canonical product name is fixed (see the header note). P-01–P-05 documentation research is complete per §4, manual Meta billing evidence is approved with conditions (§3.4), and the F-1 two-view management design is approved as a management direction (§3.5). **Still required:** the F-01 provider evidence fixture (§4.9) — the capture procedure is written but no payload exists — and the deferred live Supabase checks (§4.6.1) once G0 settles.
 
-**Decision preparation:** eight G0/G2 decisions (D-05, D-06, D-07, D-08, D-09, D-13, D-18, D-20) now have a preparation report with worked examples, consequences, dependencies and review requirements — `docs/governance/g0-g2-decision-preparation.md`. That report **does not change any status in this register**; it separates product-design conventions from matters requiring professional review, and it records one cross-decision inconsistency (D-06 revenue on order date versus D-07 COGS on shipment date) that requires a founder decision.
+**Decision preparation:** eight G0/G2 decisions (D-05, D-06, D-07, D-08, D-09, D-13, D-18, D-20) now have a preparation report with worked examples, consequences, dependencies and review requirements — `docs/governance/g0-g2-decision-preparation.md`. That report **does not change any status in this register**; it separates product-design conventions from matters requiring professional review, and it records one cross-decision inconsistency (D-06 revenue on order date versus D-07 COGS on shipment date) — **since resolved by founder direction as a two-view management design (§3.5)**, with statutory treatment still subject to professional review.
 
 ---
 
@@ -370,4 +404,4 @@ Until explicitly authorised by the founder, the following remain prohibited:
 |---|---|
 | 2026-11-17 | Register created. Founder governance principles G-G1–G-G10 recorded. D-05–D-23 statuses assigned (0 approved, 1 deferred, 11 outstanding, 7 requiring professional review). P-01–P-05 recorded as authorised but not started, no evidence obtained. |
 | 2026-11-17 | Canonical product name recorded as **Net-Margin Ad Spend Killer** (subtitle: Net-Margin Ad Spend Protection Platform). P-01–P-05 documentation research executed and recorded in §4: all five PARTIALLY VERIFIED, no item fully verified, no live account or database used. D-09 remains blocked on a refund fixture; Shippo recommended for P-04. |
-| 2026-11-17 | **G0/G2 decision preparation report added** (`g0-g2-decision-preparation.md`): D-05, D-06, D-07, D-08, D-09, D-13, D-18, D-20 each with recommendation, worked example, consequences, dependencies and review requirement. Eight product-design conventions separated from seven matters requiring accounting/tax/legal review; D-09 confirmed unresolvable without F-01. Five cross-decision findings recorded, including the D-06/D-07 period mismatch (F-1) and the requirement that PII stay out of the ledger for D-20 to coexist with INV-19 (F-4). **No status in this register changed.** No code, schema, migration, test, credential or connection created. |
+| 2026-11-17 | **F-1 resolved by founder direction — two-view management design recorded (§3.5).** Commercial Management View (revenue and COGS both on order date, primary) and Fulfilment View (both on shipment date) approved as the **proposed management design, not a statutory accounting policy**. Order and shipment events and timestamps preserved; view becomes a required calculation dimension. D-06/D-07 stay unapproved as accounting policies and still block G2. **F-01:** route B chosen (founder captures in their own development store); founder currently has no development store, so no capture occurred. **Standalone capture procedure written** (`f01-shopify-refund-evidence-capture-procedure.md`) with a pre-stated numeric discriminator, redaction and validation requirements, and minimum read-only scopes. **F-01, D-09 and the affected part of INV-02 remain OPEN.** No code, schema, migration, test, credential, provider connection or deployment. | (`g0-g2-decision-preparation.md`): D-05, D-06, D-07, D-08, D-09, D-13, D-18, D-20 each with recommendation, worked example, consequences, dependencies and review requirement. Eight product-design conventions separated from seven matters requiring accounting/tax/legal review; D-09 confirmed unresolvable without F-01. Five cross-decision findings recorded, including the D-06/D-07 period mismatch (F-1) and the requirement that PII stay out of the ledger for D-20 to coexist with INV-19 (F-4). **No status in this register changed.** No code, schema, migration, test, credential or connection created. |
