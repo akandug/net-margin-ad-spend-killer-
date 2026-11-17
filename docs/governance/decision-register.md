@@ -5,7 +5,7 @@
 **Recorded:** 2026-11-17
 **Status of this document:** A record of decisions and requirements. It is **not** evidence that any control has been implemented, tested or verified.
 
-> The project brief used the working name "Net-Margin Ad Spend Protection Platform". The founder's approval used "Net-Margin Ad Spend Killer". The canonical product name is **unresolved** and requires founder confirmation. This document uses the founder's latest wording without deciding the matter.
+> **Canonical product name (decided by the founder, 2026-11-17):** **Net-Margin Ad Spend Killer**, with the descriptive subtitle **Net-Margin Ad Spend Protection Platform**. The subtitle describes the product's purpose; the canonical name governs code, schema comments, documentation and merchant-facing copy.
 
 > This project is independent of VocalQuery BI. No architecture, schema, files, business rules or development history from that project are imported here.
 
@@ -104,19 +104,113 @@ Implementation consequences if the deferral stands: contribution profit is an **
 
 ---
 
-## 4. Provider verification requirements — P-01 to P-05
+## 4. Provider verification — P-01 to P-05
 
-Verification work is **approved**. Status below reflects evidence actually obtained. **No evidence has been obtained for any item**, because no verification has been performed as of this record.
+Verification work was **authorised by the founder and executed on 2026-11-17 as documentation research only**. Every finding below is drawn from official provider documentation read during that work. **No API call was made, no credential was used, and no merchant, sandbox or production account was connected.** A documented field is not proof of live behaviour in a merchant's account.
 
-| ID | Verification question | Evidence required | Evidence obtained | Status | Gate |
-|---|---|---|---|---|---|
-| P-01 | Is Shopify `refund_line_items[].subtotal` net or gross of discounts; how are order-level discount allocations exposed per line; are shipping and tax refunds separable | Official Admin API / webhook reference; recorded fixture | None | AUTHORISED — NOT STARTED | G2 |
-| P-02 | Shopify webhook topics for orders/refunds/fulfilments; signature scheme; header carrying a stable delivery id; retry and ordering behaviour | Official webhook documentation; recorded delivery with headers | None | AUTHORISED — NOT STARTED | G1 |
-| P-03 | Meta spend granularity and breakdowns; whether any billing, invoice, settled-charge or credit/adjustment data is available via API at all | Official Marketing API reference | None | AUTHORISED — NOT STARTED | G3 |
-| P-04 | Shippo / EasyPost / ShipStation: label-level cost detail, refunds and voids, webhook coverage, rate accuracy, auth model — then recommend one | Official API documentation compared on a fixed checklist | None | AUTHORISED — NOT STARTED | G3 |
-| P-05 | Supabase role names and privileges; transaction vs session pooling; audit-log availability; PITR availability | Official documentation, then read-only catalog queries on the connected project | None | AUTHORISED — NOT STARTED | G1 |
+**Evidence vocabulary (founder-specified):** VERIFIED FROM OFFICIAL DOCUMENTATION · PARTIALLY VERIFIED · NOT VERIFIED · REQUIRES LIVE INTEGRATION TEST · REQUIRES FOUNDER DECISION.
 
-**Rules for this work:** official provider documentation and specifications only; recorded example payloads and fixtures; documented fallback behaviour where a provider fact cannot be verified. **No live merchant credentials, no merchant account connections, no provider integrations.**
+### 4.1 Status matrix
+
+| ID | Verification question | Status | Gate | Practical consequence |
+|---|---|---|---|---|
+| P-01 | Refund line subtotal net/gross of discounts; per-line discount exposure; separable shipping and tax refunds | **PARTIALLY VERIFIED** — structure verified, discount basis unresolved | G2 | Refund maths must not be finalised until a fixture confirms the basis |
+| P-02 | Webhook signature, stable delivery id, retries, ordering, duplicate handling | **PARTIALLY VERIFIED** — signature and delivery identity verified; retry schedule and ordering not verified | G1 | Ingestion must assume at-least-once and out-of-order delivery, plus a reconciliation sweep |
+| P-03 | Meta spend granularity; availability of invoice, settled-charge or credit data | **PARTIALLY VERIFIED** — delivery spend verified; billing/settled data not found | G3 | MVP may only claim platform-reported spend |
+| P-04 | Label-level cost, refunds/voids, webhook coverage, auth, rate vs actual | **PARTIALLY VERIFIED** — Shippo and EasyPost verified on the checklist; ShipStation not verified | G3 | Shippo recommended; ShipStation cannot be recommended on current evidence |
+| P-05 | Supabase roles, RLS behaviour, pooling, audit logs, backups/PITR | **PARTIALLY VERIFIED** — RLS and pooling topology verified; role names, audit retention, PITR not verified | G1 | RLS design stands; pooler and audit assumptions require a live read-only check |
+
+### 4.2 P-01 — Shopify refunds and discounts
+
+**Source:** Shopify Admin API, *Refund* resource — https://shopify.dev/docs/api/admin-rest/latest/resources/refund (version selector shows 2026-10; the same page records that the REST Admin API became legacy on 2024-10-01 and that new public apps must use the GraphQL Admin API).
+
+Verified structure of a refund:
+
+- `refund_line_items[]` — `id`, `line_item_id`, `quantity`, `restock_type` (`no_restock` | `cancel` | `return` | `legacy_restock`), `location_id`, `subtotal`, `total_tax`, `subtotal_set`, `total_tax_set`.
+- `refund_shipping_lines[]` — `subtotal_amount_set` and tax set. The page states that as of 2024-10 refunded shipping is reported here rather than in `order_adjustments`.
+- `order_adjustments[]` — `kind` of `shipping_refund` or `refund_discrepancy`; using it for shipping refunds is deprecated as of 2024-10.
+- `refund_duties` — `FULL` or `PROPORTIONAL`, plus `total_duties_set`.
+- `transactions[]` — the refund's payment transactions, which is the only place a processor fee reversal can be evidenced.
+- The nested `line_item` carries `discount_allocations[]` (`amount`, `discount_application_index`) and `tax_lines[]`.
+
+**Unresolved:** the reference describes `subtotal` only as "the subtotal of the refund line item". It does not state whether that figure is net or gross of the original discount, nor whether the nested `discount_allocations[]` represent the original order allocation or the reversed portion. **This is the single most important open question in P-01** because D-09 and INV-02 depend on it. Status: REQUIRES LIVE INTEGRATION TEST against a recorded fixture (a discounted order, partially refunded).
+
+**Also not verified:** the order-level discount `allocation_method` (`ACROSS` | `EACH` | `ONE`) that governs how an order discount spreads across lines. The GraphQL `DiscountApplication` reference URL returned 404 during this research, so the fact is recorded as NOT VERIFIED rather than assumed. D-08's pro-rata recommendation stands independently, but the mapping from Shopify's own allocation to ours must be confirmed before G2.
+
+### 4.3 P-02 — Shopify webhooks
+
+**Source:** Shopify *Webhooks — HTTPS delivery* — https://shopify.dev/docs/apps/build/webhooks/subscribe/https
+
+- **Signature:** HMAC-SHA256 over the **raw request body**, base64-encoded, in header `X-Shopify-Hmac-Sha256`, keyed with the app's client secret. Verification must use the unmodified body bytes; re-serialising JSON breaks the comparison, and comparison must be constant-time.
+- **Delivery identity:** `X-Shopify-Webhook-Id` identifies a delivery; `X-Shopify-Event-Id` identifies the event. The documentation notes deliveries can be duplicated and advises deduplicating on these identifiers — exactly the stable identity INV-12 requires, and superior to any ordinal.
+- **Other headers:** `X-Shopify-Topic`, `X-Shopify-Shop-Domain`, `X-Shopify-Triggered-At`, `X-Shopify-API-Version`.
+- **Registration:** REST webhook registration is deprecated; subscriptions are created through the GraphQL Admin API, and mandatory compliance topics apply to public apps.
+
+**Not verified:** the retry schedule and any ordering guarantee. The relevant page could not be read to completion within this session's request budget, so no claim is made. **Fallback design:** treat delivery as at-least-once and unordered, deduplicate on the delivery/event identifiers, and never rely on a webhook to close a financial period — a scheduled reconciliation sweep per resource is the authoritative catch-up path.
+
+### 4.4 P-03 — Meta advertising spend
+
+**Sources:** *Ads Insights API* — https://developers.facebook.com/docs/marketing-api/insights/ (updated 2026-04-27); *Ad Account* reference — https://developers.facebook.com/docs/marketing-api/reference/ad-account/ (v25.0, updated 2026-08-03).
+
+- **Delivery spend is verified:** the `spend` metric is returned as a string at ad-account, campaign, ad-set and ad level, with `date_start`/`date_stop`, `date_preset`, attribution-window parameters and asynchronous report jobs; the `ads_read` permission is required.
+- **Billing data is not verified, and its absence is the finding:** the current Ad Account reference does not expose a `transactions` edge, and the `ad-account/transactions` reference returned 404 in both URL forms attempted. **No invoice, settled-charge, credit or payment-reconciliation endpoint could be established.**
+
+**Consequence for D-15:** the three-tier model stays, but only tier 1 is reachable through the API. Platform-reported spend is the decision figure and must be labelled provisional. Billing-confirmed spend may only be populated from merchant-supplied invoices or statements (manual import), and settled spend remains unavailable. **No field is to be invented because it would be commercially convenient.**
+
+**Second consequence for D-18:** Meta reports spend on the platform's own day boundary, which need not match the merchant's accounting day or the invoice charge date. Platform-reported spend and any future billing figure must therefore be stored as separate period-scoped facts, never reconciled by overwriting one with the other.
+
+**Not verified:** product-level or catalog/DPA spend attribution. It is listed in Meta's documentation as a reporting capability but the exact fields were not established here, so D-16's allocation logic must not assume it exists.
+
+### 4.5 P-04 — Shipping provider evaluation
+
+**Shippo** — https://docs.goshippo.com (refunds, webhook security, Reporting API `invoice.v1`):
+
+- Refunds are requested **one label at a time**, with statuses `QUEUED`, `PENDING`, `SUCCESS`, `ERROR`; labels are refundable within 90 days; processing is documented as roughly 14 business days; the refund covers label cost, insurance and tracking fee and appears as a **negative line item on the next invoice**.
+- The Reporting API's `invoice.v1` returns one row per **invoice item**, carrying `invoice_object_id`, `invoice_number`, `invoice_status`, `invoice_ready_for_charge_at`, `invoice_paid_at`, `invoice_total_amount`, `invoice_charged_amount`, plus `invoice_item_type`, `invoice_item_amount`, `invoice_item_charged_amount`, the FX rate used, `transaction_object_id`, `shippo_account_id` and `is_return`. Refund and credit rows carry negative amounts; one run covers up to 92 days; open and write-off invoices are excluded; data is refreshed periodically.
+- Webhook authenticity is documented as IP allowlisting, a per-endpoint auth token and an HMAC signature (`Shippo-Auth-Signature`, `t=`/`v1=`), with the HMAC option requiring a documented setup lead time.
+
+**EasyPost** — https://docs.easypost.com/docs/refunds and /docs/webhooks:
+
+- The `Refund` object is **immutable once created**, links to `shipment_id` and `tracking_code`, and carries carrier-reported status `submitted` | `refunded` | `rejected`. USPS labels are refundable within 30 days if unscanned, with at least 15 days' processing and EasyPost fees also refunded; UPS and FedEx within 90 days.
+- Webhooks support HMAC validation via `X-Hmac-Signature` using a `webhook_secret`, or basic authentication; HTTPS is required, a 2XX response is required, and endpoints failing repeatedly may be automatically disabled.
+
+**ShipStation** — https://docs.shipstation.com: the documentation site was reachable and describes label generation, rate comparison, tracking webhooks and return labels, but **label-level cost fields, void/refund semantics and any invoice or billing report were not verified.** Status: NOT VERIFIED.
+
+**Recommendation: Shippo**, because `invoice.v1` is the only verified mechanism that returns the **actual charged amount per transaction**, including negative refund and credit rows and an `is_return` flag. That is precisely what worked example F needs to supersede an estimated outbound shipping cost with an actual one without mutating the estimate (INV-14), and what lets store-period shipping cost reconcile to a supplier invoice (INV-21). EasyPost is a credible fallback with the cleanest refund semantics but no verified equivalent billing report. ShipStation cannot be recommended on the evidence gathered.
+
+### 4.6 P-05 — Supabase and PostgreSQL security
+
+**Sources:** *Row Level Security* — https://supabase.com/docs/guides/database/postgres/row-level-security (updated 2026-11-03); *Connect to your database* — https://supabase.com/docs/guides/database/connecting-to-postgres (updated 2026-11-06); *Supavisor* — https://supabase.com/docs/guides/database/supavisor (updated 2026-07-29).
+
+- **Grants and policies are independent checks.** Adding a policy does not revoke a grant, and enabling RLS does not by itself restrict anything if privileges remain. New tables in the `public` schema may receive broad grants to `anon`, `authenticated` and `service_role`, so the design must revoke first and grant narrowly — this is the documented basis for the least-privilege roles in §4.4 of the architecture review.
+- **RLS must be enabled per table**, and `FORCE ROW LEVEL SECURITY` is what makes the policy apply to the table owner as well.
+- **`service_role` bypasses RLS entirely.** It must never reach a client, and it must not be the role used by ingestion or workers.
+- **Views bypass RLS by default** unless created with `security_invoker = true`; **security-definer functions owned by `postgres` also bypass RLS**. Any reporting view over financial data is therefore a tenant-isolation hazard unless it is explicitly built otherwise.
+- **Testing:** pgTAP tests live in `supabase/tests/*.sql` and run through `supabase test db`, which is a viable home for CT-01–CT-12.
+- **Pooling:** the connection guide distinguishes direct connection, session pooler and transaction pooler (Supavisor); transaction pooling is the documented choice for serverless or short-lived connections, and the Supavisor page ties the maximum client count to the compute add-on.
+
+**Not verified, and not to be asserted:** whether `SET LOCAL` tenant context behaves correctly under transaction pooling **on this project's pooler** (PostgreSQL semantics are transaction-scoped, but pooler behaviour requires a live test); the actual role names and privilege grants in a connected project; audit-log retention and coverage; and point-in-time recovery availability on the account's plan. These remain REQUIRES LIVE INTEGRATION TEST / REQUIRES PROJECT ACCESS and are prerequisites for G1 rather than assumptions to build on.
+
+### 4.7 Decisions and invariants affected by these findings
+
+| Item | Effect of the evidence |
+|---|---|
+| D-08 Discount allocation | Recommendation unchanged; Shopify's own `allocation_method` mapping remains unverified |
+| D-09 Refund basis | **Cannot be closed** until a fixture settles net vs gross in `refund_line_items[].subtotal` |
+| D-11 Shipping cost precedence | **Strengthened** — Shippo `invoice.v1` gives a verified actual-charge source, so option A (estimate superseded by actual revision) is now evidenced |
+| D-15 Advertising classification | Tier 1 only via API; tiers 2–3 depend on merchant-supplied evidence or future verification |
+| D-16 Ad allocation | Product-level Meta spend must stay unverified; unallocated remainder stays visible |
+| D-18 Period policy | Reinforced: platform spend date and supplier invoice date differ, so dual periods are necessary rather than cosmetic |
+| INV-02 | Refund ceiling formula stands, but its input basis is blocked on P-01 |
+| INV-03 | Supported: refund tax and shipping tax are separately exposed |
+| INV-12 / INV-13 | Stable identities now evidenced: Shopify delivery/event ids, Shippo `transaction_object_id`, EasyPost refund id |
+| INV-14 | Supported end to end by Shippo invoice items carrying the charged amount per transaction |
+| INV-21 | Supported for shipping by invoice items; advertising reconciliation limited to tier 1 |
+| INV-22 | Fee-reversal attribution can key on the refund's own `transactions[]` |
+
+### 4.8 Rules for this work (unchanged)
+
+Official provider documentation and specifications only; recorded example payloads and fixtures; documented fallback behaviour where a provider fact cannot be verified. **No live merchant credentials, no merchant account connections, no provider integrations.** No invariant may be marked tested on the basis of this section.
 
 ---
 
@@ -132,7 +226,7 @@ The following must be decided by the founder before the named gate can open. Eac
 
 **Already deferred:** D-14, on the three conditions in §3.1.
 
-**Also outstanding:** the canonical product name (§ header).
+**Resolved since this register was created:** the canonical product name is fixed (see the header note). P-01–P-05 documentation research is complete per §4; the remaining provider work is the live-fixture and live-database verification listed in §4.1 and §4.6.
 
 ---
 
@@ -175,3 +269,4 @@ Until explicitly authorised by the founder, the following remain prohibited:
 | Date | Change |
 |---|---|
 | 2026-11-17 | Register created. Founder governance principles G-G1–G-G10 recorded. D-05–D-23 statuses assigned (0 approved, 1 deferred, 11 outstanding, 7 requiring professional review). P-01–P-05 recorded as authorised but not started, no evidence obtained. |
+| 2026-11-17 | Canonical product name recorded as **Net-Margin Ad Spend Killer** (subtitle: Net-Margin Ad Spend Protection Platform). P-01–P-05 documentation research executed and recorded in §4: all five PARTIALLY VERIFIED, no item fully verified, no live account or database used. D-09 remains blocked on a refund fixture; Shippo recommended for P-04. |
