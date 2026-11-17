@@ -45,11 +45,22 @@ D-06 recommends **management revenue on the order date**. D-07 recommends **COGS
 
 The magnitude is not academic: for a merchant shipping 1–3 days after order, a period boundary captures roughly one day's orders with no matching cost — on 30-day months and 100 orders/day, that is ~3% of monthly orders mismatched, and the distortion lands entirely in the two periods either side of the boundary.
 
-**This is not resolved in this report.** It requires a founder decision on whether the management view matches on order date (revenue and COGS both on order date, using the cost snapshot) or on shipment date (both on shipment date). The register recommendation, taken literally, does neither. **Recommendation: keep the two-view structure, but make each view internally consistent — management view matches revenue and COGS on the same event.** Statutory view stays shipment-based.
+**RESOLVED — founder direction, 2026-11-17.** The founder approved the two-view structure as the **proposed management design** (not a statutory accounting policy):
+
+1. **Commercial Management View** — recognise **both revenue and COGS on the order date**, using the applicable cost snapshot, and label it explicitly as an order-date management measure. This is the founder's preferred **primary** view.
+2. **Fulfilment View** — recognise **both revenue and COGS on the shipment date**, using the shipment cost snapshot, available separately.
+3. The original order and shipment events and their timestamps are **preserved**; neither view may destroy the evidence the other needs.
+4. **Statutory accounting treatment stays separately identified and subject to professional accounting review.** Neither management view establishes statutory compliance.
+
+**What this changes:** the period mismatch no longer exists *within* either view, because each pairs revenue with COGS on a single event date. **What it does not change:** D-06 and D-07 remain unapproved as accounting policies, and the difference between the two views must never be presented as final realised contribution profit. Neither view may be labelled "contribution profit" without a view qualifier.
+
+**Engine consequence:** a calculation must carry its view (commercial / fulfilment) as part of its identity, so a snapshot from one view can never be silently compared with, aggregated into, or substituted for the other. This is a calculation-versioning requirement, not a display preference.
 
 ### F-2 — D-09 cannot be closed by preference, only by evidence
 
 The register recommends option A (net basis). Whether Shopify's refund payload is net or gross of discount is a **provider fact** that the F-01 fixture has not yet established. Adopting option A now would encode an assumption as a policy. **D-09 stays open until F-01 is captured**, and the engine must run under an explicitly labelled, versioned assumption until then.
+
+**2026-11-17 update:** the standalone capture procedure is now written — `docs/governance/f01-shopify-refund-evidence-capture-procedure.md`. It contains the pre-stated numeric discriminator (net basis 54.00 subtotal / 4.32 tax versus gross basis 60.00 / 4.80), so the capture is a test rather than a rationalisation. The founder will run it in their own development store. **No payload has been captured; F-01 and D-09 remain open.**
 
 ### F-3 — D-13's allocation basis leaves a real, non-attributable residual
 
@@ -487,7 +498,7 @@ If you take one page to an accountant, take this.
 - **Verified in this report:** all arithmetic in §3, §4.1–§4.8, reconciled both by direct computation and by delta from the order-level total (§4.5, §4.6). The reconciliation checks are stated so you can reproduce them.
 - **Not verified:** every provider fact — refund basis, per-order fee retrievability, per-receipt cost availability, alignment of our discount allocation with the provider's. None was tested against a live payload.
 - **Not performed:** no code, schema, migration, test, integration, credential, environment variable, Supabase connection or deployment.
-- **Register status:** unchanged — APPROVED 0 · APPROVED WITH CONDITIONS 1 (D-15) · DEFERRED 1 · OUTSTANDING 10 · PROFESSIONAL REVIEW REQUIRED 7.
+- **Register status:** unchanged by this report — APPROVED 0 · APPROVED WITH CONDITIONS 1 (D-15) · DEFERRED 1 · OUTSTANDING 10 · PROFESSIONAL REVIEW REQUIRED 7. F-1 is a management-design direction, not a D-decision, so it does not alter these counts.
 - **Files:** this document added; `decision-register.md` gains a cross-reference only.
 
 ---
@@ -495,7 +506,7 @@ If you take one page to an accountant, take this.
 ## 9. Decisions this report asks of you
 
 1. **Adopt the eight product-design conventions in §5.1 as conventions** (not policies).
-2. **Resolve F-1:** should the management view match revenue and COGS on the same event, and if so which one?
+2. ~~**Resolve F-1:** should the management view match revenue and COGS on the same event, and if so which one?~~ **ANSWERED 2026-11-17** — two-view design approved as the proposed management design, order-date Commercial Management View as the primary measure, fulfilment view separately, statutory treatment still subject to professional review. See F-1.
 3. **Confirm D-09 stays open** until F-01 is captured, with the assumption-labelling interim position.
 4. **Confirm the D-13 residual rule** (tax-related fee and fixed component stay at order level).
 5. **Confirm D-20's PII-separation constraint** as a G0 schema requirement.
