@@ -48,7 +48,7 @@ These were explicitly approved by the founder. They establish **design and gover
 
 Status vocabulary: **APPROVED** · **APPROVED WITH CONDITIONS** · **DEFERRED** · **OUTSTANDING** · **PROFESSIONAL REVIEW REQUIRED**
 
-**No D decision is currently APPROVED. None is APPROVED WITH CONDITIONS.** The founder approved governance principles, not individual decision options.
+**No D decision is APPROVED in full. One is APPROVED WITH CONDITIONS: D-15, and only for the manual billing-evidence route recorded in §3.4.** The founder approved governance principles and one evidence mechanism, not individual decision options.
 
 | ID | Decision | Recommended option | Status | Gate |
 |---|---|---|---|---|
@@ -62,7 +62,7 @@ Status vocabulary: **APPROVED** · **APPROVED WITH CONDITIONS** · **DEFERRED** 
 | D-12 | Fulfilment and packaging cost source | A — merchant-configured rules; pool allocation only as an explicit, labelled fallback | OUTSTANDING | G3 |
 | D-13 | Payment processing fee allocation | A — pro-rata over line net revenue including shipping revenue, largest remainder; allocated once at charge time | OUTSTANDING | G2 |
 | D-14 | Return provision | A — none in MVP (actual returns only); B post-pilot | **DEFERRED** (conditions in §3.1) | — |
-| D-15 | Advertising spend classification | A — three tiers: platform-reported (decision figure), billing-confirmed (reconciliation), settled (deferred) | OUTSTANDING | G3 |
+| D-15 | Advertising spend classification | A — three tiers: platform-reported (decision figure), billing-confirmed (reconciliation), settled (deferred) | **APPROVED WITH CONDITIONS** — manual billing evidence only (§3.4) | G3 |
 | D-16 | Ad allocation and unallocated spend | A — allocate what is attributable (labelled estimated); retain remainder as store-level cost | OUTSTANDING | G3 |
 | D-17 | Tax determination | A — merchant configures jurisdictions, registration ids and tax codes; platform records and reconciles, never computes rates or nexus | PROFESSIONAL REVIEW REQUIRED | G3 |
 | D-18 | Accounting-period policy | A — dual management_period + accounting_period (Resolution D, D-R1–D-R10) | PROFESSIONAL REVIEW REQUIRED | G2 |
@@ -72,7 +72,7 @@ Status vocabulary: **APPROVED** · **APPROVED WITH CONDITIONS** · **DEFERRED** 
 | D-22 | Co-Pilot guardrail defaults | A — the seven-guardrail default table (see §3.2) | OUTSTANDING | G4 |
 | D-23 | Attribution presentation | A — platform-reported and internal allocation both stored and shown, never blended | OUTSTANDING | G3 |
 
-**Tally:** APPROVED 0 · APPROVED WITH CONDITIONS 0 · DEFERRED 1 · OUTSTANDING 11 · PROFESSIONAL REVIEW REQUIRED 7.
+**Tally:** APPROVED 0 · APPROVED WITH CONDITIONS 1 (D-15) · DEFERRED 1 · OUTSTANDING 10 · PROFESSIONAL REVIEW REQUIRED 7.
 
 ### 3.1 D-14 — conditions attached to the accepted deferral
 
@@ -102,6 +102,16 @@ Implementation consequences if the deferral stands: contribution profit is an **
 - **D-16:** option B (forcing all spend onto products) must not be selected without explicit founder approval.
 - All option sets and recommendations in the delivered register are preserved verbatim; no option has been silently changed.
 
+### 3.4 D-15 — conditions attached to the approved manual billing evidence
+
+The founder approved **manual invoice/statement import** as the pilot route to billing-confirmed advertising spend. The approval is conditional on all six rules in §4.4.1, and on these limits:
+
+- **Approved:** the manual import mechanism, and the separation of platform-reported, billing-confirmed and settled classifications.
+- **Not approved:** any claim that settled spend can be derived from an invoice; any implementation of a Meta invoice or billing API; any silent adjustment of platform-reported spend to match an invoice.
+- **Still outstanding:** the remaining D-15 presentation rules and any automated billing retrieval, which remain unverified because no endpoint was established (§4.4).
+
+Leaving these conditions unenforced would let an unvalidated document masquerade as confirmed billing data, which is the specific failure this approval is written to prevent.
+
 ---
 
 ## 4. Provider verification — P-01 to P-05
@@ -114,11 +124,11 @@ Verification work was **authorised by the founder and executed on 2026-11-17 as 
 
 | ID | Verification question | Status | Gate | Practical consequence |
 |---|---|---|---|---|
-| P-01 | Refund line subtotal net/gross of discounts; per-line discount exposure; separable shipping and tax refunds | **PARTIALLY VERIFIED** — structure verified, discount basis unresolved | G2 | Refund maths must not be finalised until a fixture confirms the basis |
-| P-02 | Webhook signature, stable delivery id, retries, ordering, duplicate handling | **PARTIALLY VERIFIED** — signature and delivery identity verified; retry schedule and ordering not verified | G1 | Ingestion must assume at-least-once and out-of-order delivery, plus a reconciliation sweep |
-| P-03 | Meta spend granularity; availability of invoice, settled-charge or credit data | **PARTIALLY VERIFIED** — delivery spend verified; billing/settled data not found | G3 | MVP may only claim platform-reported spend |
+| P-01 | Refund line subtotal net/gross of discounts; per-line discount exposure; separable shipping and tax refunds | **PARTIALLY VERIFIED** — structure verified, discount basis unresolved | G2 | GraphQL Admin API is the primary specification; refund maths is not finalised until the F-01 fixture confirms the basis (§4.9) |
+| P-02 | Webhook signature, stable delivery id, retries, ordering, duplicate handling | **VERIFIED** — signature and delivery identity from research; retry and ordering behaviour corrected by the founder against official documentation (§4.3) | G1 | Delivery is duplicate-capable and unordered with bounded retries; reconciliation is mandatory |
+| P-03 | Meta spend granularity; availability of invoice, settled-charge or credit data | **PARTIALLY VERIFIED** — delivery spend verified; billing/settled data not found | G3 | MVP may only claim platform-reported spend; billing-confirmed arrives through the approved manual import process (§4.4.1) |
 | P-04 | Label-level cost, refunds/voids, webhook coverage, auth, rate vs actual | **PARTIALLY VERIFIED** — Shippo and EasyPost verified on the checklist; ShipStation not verified | G3 | Shippo recommended; ShipStation cannot be recommended on current evidence |
-| P-05 | Supabase roles, RLS behaviour, pooling, audit logs, backups/PITR | **PARTIALLY VERIFIED** — RLS and pooling topology verified; role names, audit retention, PITR not verified | G1 | RLS design stands; pooler and audit assumptions require a live read-only check |
+| P-05 | Supabase roles, RLS behaviour, pooling, audit logs, backups/PITR | **PARTIALLY VERIFIED** — RLS and pooling topology verified; role names, audit retention, PITR not verified | G1 | RLS design stands; all live checks deferred by the founder until G0 settles (§4.6.1) |
 
 ### 4.2 P-01 — Shopify refunds and discounts
 
@@ -133,7 +143,25 @@ Verified structure of a refund:
 - `transactions[]` — the refund's payment transactions, which is the only place a processor fee reversal can be evidenced.
 - The nested `line_item` carries `discount_allocations[]` (`amount`, `discount_application_index`) and `tax_lines[]`.
 
-**Unresolved:** the reference describes `subtotal` only as "the subtotal of the refund line item". It does not state whether that figure is net or gross of the original discount, nor whether the nested `discount_allocations[]` represent the original order allocation or the reversed portion. **This is the single most important open question in P-01** because D-09 and INV-02 depend on it. Status: REQUIRES LIVE INTEGRATION TEST against a recorded fixture (a discounted order, partially refunded).
+#### 4.2.1 GraphQL Admin API is the primary integration specification
+
+The **GraphQL Admin API is the primary specification** for this integration. The REST findings recorded above are retained only as **supporting historical evidence**, because the REST Admin API became legacy on 2024-10-01 and new public apps must use GraphQL.
+
+- Field semantics are to be established against the GraphQL schema — `Order`, `Refund`, `RefundLineItem`, `OrderAdjustment`, `DiscountApplication`, `OrderTransaction` — before any ingestion contract is written.
+- The REST field names above are a **cross-check**, not the contract.
+- Where the two disagree, GraphQL governs, and the disagreement is itself recorded as an evidence item.
+
+#### 4.2.2 A refund record is not proof of repayment
+
+A Shopify refund object records an **intended or requested** reversal. It must never be treated, on its own, as evidence that cash was returned to the customer. The financial engine must distinguish three things:
+
+1. the **refund record** — line items, quantities, tax, shipping, adjustments, duties;
+2. the **refund transaction** — the processor's own record, carrying its state and amount;
+3. the **settled repayment** — a successful transaction and, where available, the processor's settlement evidence.
+
+Contribution profit may recognise a refund as **actual** only when a refund transaction evidences it. A refund record with no successful transaction is **provisional** and must be labelled as such; a pending or failed transaction blocks promotion to actual. This is INV-14 (no silent conversion of estimated into actual) applied to refunds, and it is why the refund fixture in §4.9 captures the transaction separately from the refund record.
+
+**Unresolved:** the reference describes `subtotal` only as "the subtotal of the refund line item". It does not state whether that figure is net or gross of the original discount, nor whether the nested `discount_allocations[]` represent the original order allocation or the reversed portion. **This is the single most important open question in P-01** because D-09 and INV-02 depend on it. Status: REQUIRES LIVE INTEGRATION TEST against the F-01 fixture (§4.9).
 
 **Also not verified:** the order-level discount `allocation_method` (`ACROSS` | `EACH` | `ONE`) that governs how an order discount spreads across lines. The GraphQL `DiscountApplication` reference URL returned 404 during this research, so the fact is recorded as NOT VERIFIED rather than assumed. D-08's pro-rata recommendation stands independently, but the mapping from Shopify's own allocation to ours must be confirmed before G2.
 
@@ -146,7 +174,16 @@ Verified structure of a refund:
 - **Other headers:** `X-Shopify-Topic`, `X-Shopify-Shop-Domain`, `X-Shopify-Triggered-At`, `X-Shopify-API-Version`.
 - **Registration:** REST webhook registration is deprecated; subscriptions are created through the GraphQL Admin API, and mandatory compliance topics apply to public apps.
 
-**Not verified:** the retry schedule and any ordering guarantee. The relevant page could not be read to completion within this session's request budget, so no claim is made. **Fallback design:** treat delivery as at-least-once and unordered, deduplicate on the delivery/event identifiers, and never rely on a webhook to close a financial period — a scheduled reconciliation sweep per resource is the authoritative catch-up path.
+**Delivery characteristics — corrected by the founder against official documentation:**
+
+- Shopify retries failed deliveries **up to eight times over a four-hour period**.
+- Shopify **does not guarantee event ordering**.
+- **Duplicate deliveries are possible.**
+- Shopify **may stop retrying** once the retry limit is reached, so an event can be lost entirely.
+
+**Delivery is therefore described as duplicate-capable, unordered delivery with bounded retries and mandatory reconciliation.** It is **not** to be described as guaranteed at-least-once, because a bounded retry limit permits permanent loss.
+
+**Design consequences:** deduplicate on `X-Shopify-Webhook-Id` and `X-Shopify-Event-Id`; make every handler idempotent and order-independent; never let a webhook close a financial period; and run a **mandatory scheduled reconciliation sweep** per resource (orders, refunds, fulfilments) that re-reads provider state and ingests anything missed. A missed webhook must never mean a missed financial event.
 
 ### 4.4 P-03 — Meta advertising spend
 
@@ -158,6 +195,19 @@ Verified structure of a refund:
 **Consequence for D-15:** the three-tier model stays, but only tier 1 is reachable through the API. Platform-reported spend is the decision figure and must be labelled provisional. Billing-confirmed spend may only be populated from merchant-supplied invoices or statements (manual import), and settled spend remains unavailable. **No field is to be invented because it would be commercially convenient.**
 
 **Second consequence for D-18:** Meta reports spend on the platform's own day boundary, which need not match the merchant's accounting day or the invoice charge date. Platform-reported spend and any future billing figure must therefore be stored as separate period-scoped facts, never reconciled by overwriting one with the other.
+
+#### 4.4.1 Manual billing evidence — approved for the pilot
+
+The founder has approved **manual invoice/statement import** as the route to billing-confirmed advertising spend for the pilot. It is a documented evidence process, not an API integration.
+
+1. Platform-reported, billing-confirmed and settled spend remain **separate classifications** and are never merged into one figure.
+2. An imported invoice may support **billing-confirmed** spend only after validation and reconciliation against platform-reported spend.
+3. An imported invoice **never** establishes **settled** spend on its own.
+4. The original evidence document is preserved with its **source, reporting period, currency, import date, amount and reconciliation status**.
+5. Duplicate imports are **prevented** by a stable identity over source document and period.
+6. Unmatched differences **remain visible and unresolved**; platform-reported spend is never silently adjusted to match an invoice.
+
+**No Meta invoice API is to be invented or implemented.** The absence of a verified endpoint (§4.4) stands.
 
 **Not verified:** product-level or catalog/DPA spend attribution. It is listed in Meta's documentation as a reporting capability but the exact fields were not established here, so D-16's allocation logic must not assume it exists.
 
@@ -176,7 +226,14 @@ Verified structure of a refund:
 
 **ShipStation** — https://docs.shipstation.com: the documentation site was reachable and describes label generation, rate comparison, tracking webhooks and return labels, but **label-level cost fields, void/refund semantics and any invoice or billing report were not verified.** Status: NOT VERIFIED.
 
-**Recommendation: Shippo**, because `invoice.v1` is the only verified mechanism that returns the **actual charged amount per transaction**, including negative refund and credit rows and an `is_return` flag. That is precisely what worked example F needs to supersede an estimated outbound shipping cost with an actual one without mutating the estimate (INV-14), and what lets store-period shipping cost reconcile to a supplier invoice (INV-21). EasyPost is a credible fallback with the cleanest refund semantics but no verified equivalent billing report. ShipStation cannot be recommended on the evidence gathered.
+#### 4.5.1 Evidence preservation and refund lifecycle
+
+- Preserve the **original Shippo invoice item and transaction identifiers** verbatim (`invoice_object_id`, `invoice_number`, `transaction_object_id`, `invoice_item_*`), so every derived figure can be traced back to supplier evidence.
+- Five states must be distinguished and never collapsed: **label creation** (label purchased), **charge** (amount billed on an invoice item), **refund request** (submitted), **pending refund** (`QUEUED`/`PENDING`), and **completed refund** (`SUCCESS`).
+- A **pending refund is not a completed supplier credit.** It is carried as an expected credit, never netted against cost as though received; only a completed refund, evidenced in supplier billing, reduces cost.
+- **Supplier invoice items must not be assumed allocatable to individual orders.** `invoice.v1` links a row to a transaction, but invoice-item-to-order allocation is usable only where a separately evidenced allocation method exists. Until then, store-level reconciliation is the honest ceiling and per-order allocation of invoice items stays unverified.
+
+**Recommendation: Shippo — provisional.** It remains the MVP recommendation because `invoice.v1` is the only verified mechanism that returns the **actual charged amount per transaction**, including negative refund and credit rows and an `is_return` flag. That is what worked example F needs to supersede an estimated outbound shipping cost with an actual one without mutating the estimate (INV-14), and what lets store-period shipping cost reconcile to a supplier invoice (INV-21). The recommendation is **provisional and subject to final commercial and integration validation**, including Shippo account requirements, pricing, webhook HMAC enablement lead time and the invoice-to-order allocation question above. EasyPost is the fallback, with the cleanest refund semantics but no verified equivalent billing report. ShipStation cannot be recommended on the evidence gathered.
 
 ### 4.6 P-05 — Supabase and PostgreSQL security
 
@@ -189,7 +246,18 @@ Verified structure of a refund:
 - **Testing:** pgTAP tests live in `supabase/tests/*.sql` and run through `supabase test db`, which is a viable home for CT-01–CT-12.
 - **Pooling:** the connection guide distinguishes direct connection, session pooler and transaction pooler (Supavisor); transaction pooling is the documented choice for serverless or short-lived connections, and the Supavisor page ties the maximum client count to the compute add-on.
 
-**Not verified, and not to be asserted:** whether `SET LOCAL` tenant context behaves correctly under transaction pooling **on this project's pooler** (PostgreSQL semantics are transaction-scoped, but pooler behaviour requires a live test); the actual role names and privilege grants in a connected project; audit-log retention and coverage; and point-in-time recovery availability on the account's plan. These remain REQUIRES LIVE INTEGRATION TEST / REQUIRES PROJECT ACCESS and are prerequisites for G1 rather than assumptions to build on.
+#### 4.6.1 Live checks deferred by the founder
+
+All live Supabase checks are **deferred**. **No database is to be connected and no credential requested** at this stage. The following remain **outstanding** until G0 decisions are settled and the founder authorises project provisioning and access:
+
+- Actual database roles and grants.
+- RLS and `FORCE ROW LEVEL SECURITY` behaviour on the real tables.
+- Transaction-local tenant context (`SET LOCAL`) under the selected pooler.
+- Cross-tenant isolation tests (CT-01–CT-12) against a live database.
+- Audit logging configuration and retention.
+- Actual backup and point-in-time recovery availability on the selected plan.
+
+Until then, every statement in this section is **documented behaviour**, not observed behaviour on this project. In particular, whether `SET LOCAL` tenant context survives transaction pooling **on this project's pooler** is unproven: PostgreSQL semantics are transaction-scoped, but pooler behaviour requires a live test.
 
 ### 4.7 Decisions and invariants affected by these findings
 
@@ -207,10 +275,40 @@ Verified structure of a refund:
 | INV-14 | Supported end to end by Shippo invoice items carrying the charged amount per transaction |
 | INV-21 | Supported for shipping by invoice items; advertising reconciliation limited to tier 1 |
 | INV-22 | Fee-reversal attribution can key on the refund's own `transactions[]` |
+| Refund record vs repayment | §4.2.2: a refund record alone cannot promote a value to actual |
+| Webhook delivery | §4.3: duplicate-capable, unordered, bounded retries — reconciliation is a required component, not an optimisation |
 
-### 4.8 Rules for this work (unchanged)
+### 4.8 Rules for this work
 
-Official provider documentation and specifications only; recorded example payloads and fixtures; documented fallback behaviour where a provider fact cannot be verified. **No live merchant credentials, no merchant account connections, no provider integrations.** No invariant may be marked tested on the basis of this section.
+Official provider documentation and specifications only; recorded example payloads and fixtures; documented fallback behaviour where a provider fact cannot be verified. **No live merchant credentials, no merchant account connections, no provider integrations.** Preparing the F-01 fixture **specification** is authorised (§4.9); capturing a provider evidence fixture requires a later founder authorisation. No invariant may be marked tested on the basis of this section.
+
+### 4.9 F-01 — Shopify refund fixture specification (authorised, not executed)
+
+**Status: AUTHORISED FOR PREPARATION — NOT EXECUTED.** No merchant store was connected and no live payload was captured. This is a specification only.
+
+**Two fixture classes that must never be conflated:**
+
+| Class | What it is | What it can prove |
+|---|---|---|
+| **Synthetic calculation fixture** | Hand-constructed input records with expected outputs, built from the financial model | Proves the engine's arithmetic and invariants against stated inputs |
+| **Provider evidence fixture** | A recorded payload captured from a real Shopify test store | Proves what Shopify actually sends, and settles field semantics |
+
+A synthetic fixture **cannot** settle whether `refund_line_items[].subtotal` is net or gross of discount, because that is a provider fact. **D-09 and the affected part of INV-02 stay open until a provider evidence fixture demonstrates the behaviour.**
+
+**Required coverage of the provider evidence fixture:**
+
+1. Original order carrying a **line-level or order-level discount**.
+2. **Partial refund of a discounted line** (quantity less than the line quantity).
+3. Original **line price and discount allocations**, as sent by the provider.
+4. **Refunded quantity and refund subtotal**, exactly as sent.
+5. **Tax treatment** — tax on the refunded line, and whether prices are tax-inclusive.
+6. **Refund transaction amount and status**, so the refund record and the repayment can be compared.
+7. **Shipping refund**, where applicable.
+8. **Expected financial-engine treatment**, stated **before** capture, so the comparison is a test rather than a rationalisation.
+
+**Capture requirements:** the raw request body and all headers for the webhook, plus the GraphQL response used to build the fixture; API version and capture date; the payload stored unmodified as evidence, with any redaction recorded rather than silently applied; and the shop's currency, tax-inclusive setting and discount type.
+
+**Prohibited:** assuming the net/gross basis in code, tests or documentation before the fixture demonstrates it; deriving an expectation from an observed number without recording that it was derived after the fact; treating a refund record as evidence of repayment.
 
 ---
 
@@ -220,13 +318,13 @@ The following must be decided by the founder before the named gate can open. Eac
 
 **Blocking G2 (financial correctness):** D-06, D-07, D-08, D-09, D-13, D-18.
 
-**Blocking G3 (merchant-visible profitability):** D-10, D-11, D-12, D-15, D-16, D-17, D-19, D-20, D-21, D-23.
+**Blocking G3 (merchant-visible profitability):** D-10, D-11, D-12, D-16, D-17, D-19, D-20, D-21, D-23. D-15 is approved with conditions (§3.4) and no longer blocks, provided those conditions are enforced.
 
 **Blocking G4 (Co-Pilot):** D-22.
 
 **Already deferred:** D-14, on the three conditions in §3.1.
 
-**Resolved since this register was created:** the canonical product name is fixed (see the header note). P-01–P-05 documentation research is complete per §4; the remaining provider work is the live-fixture and live-database verification listed in §4.1 and §4.6.
+**Resolved since this register was created:** the canonical product name is fixed (see the header note). P-01–P-05 documentation research is complete per §4, and manual Meta billing evidence is approved with conditions (§3.4). **Still required:** the F-01 provider evidence fixture (§4.9), and the deferred live Supabase checks (§4.6.1) once G0 settles.
 
 ---
 
@@ -270,3 +368,4 @@ Until explicitly authorised by the founder, the following remain prohibited:
 |---|---|
 | 2026-11-17 | Register created. Founder governance principles G-G1–G-G10 recorded. D-05–D-23 statuses assigned (0 approved, 1 deferred, 11 outstanding, 7 requiring professional review). P-01–P-05 recorded as authorised but not started, no evidence obtained. |
 | 2026-11-17 | Canonical product name recorded as **Net-Margin Ad Spend Killer** (subtitle: Net-Margin Ad Spend Protection Platform). P-01–P-05 documentation research executed and recorded in §4: all five PARTIALLY VERIFIED, no item fully verified, no live account or database used. D-09 remains blocked on a refund fixture; Shippo recommended for P-04. |
+| 2026-11-17 | **Founder corrections applied.** P-02 delivery characteristics corrected against official documentation: up to eight retries over four hours, no ordering guarantee, duplicates possible, retries may stop — recorded as duplicate-capable, unordered delivery with bounded retries and mandatory reconciliation; the earlier "at-least-once" description is withdrawn. Shopify **GraphQL Admin API** made the primary specification with REST retained as supporting historical evidence; a refund record is explicitly distinguished from a successfully processed refund transaction (§4.2.1–§4.2.2). **F-01 refund fixture specification** recorded (§4.9) as authorised for preparation, not executed, separating synthetic calculation fixtures from provider evidence fixtures. **Manual Meta billing evidence approved** with six conditions; D-15 becomes APPROVED WITH CONDITIONS (§3.4), tally now 0 / 1 / 1 / 10 / 7. Shippo evidence refined to five lifecycle states with identifier preservation and a provisional recommendation (§4.5.1). Supabase live checks deferred (§4.6.1). No code, schema, migration, test, credential, connection or deployment was created. |
