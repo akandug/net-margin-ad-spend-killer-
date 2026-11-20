@@ -218,10 +218,106 @@ Reasoning in one line: the residual is not attributable to a product because its
 
 **Conditions if adopted:** the reconciliation check in §3.6 must be enforced as a hard failure, the residual must be named and drilled down rather than absorbed, and the fee must be labelled estimated until actual per-charge evidence exists.
 
-**Not approved by this brief.** D-13 remains **OUTSTANDING** pending your review, and items in §7 remain open regardless of your decision.
+**Not approved by this brief.** At the time of writing, D-13 was **OUTSTANDING** pending your review. Following founder review on **2026-11-20** the **principle is approved in principle** — see §10, which records the conditions and the reviews that remain open. Items in §7 remain open regardless of your decision.
 
 ---
 
 ## 9. Boundary statement
 
 Documentation only. No code, schema, migration, test, provider connection, credential, environment variable, Supabase provisioning or deployment. No fee figure here was obtained from a live processor; all arithmetic is reproduced from the recorded worked example in `g0-g2-decision-preparation.md` §4.6 and re-verified by the reconciliation in §4 step 4.
+
+---
+
+## 10. Founder direction, 2026-11-20 — approval in principle
+
+**Status change: OUTSTANDING → APPROVED WITH CONDITIONS (in principle).** The principle is approved; the professional accounting and provider reviews remain **open**.
+
+### 10.1 What was approved
+
+The founder approved the principle that **the 63 minor-unit residual remains an explicit order-level payment-processing cost** rather than being artificially allocated to products, and that the **444 product-attributable variable fee is allocated using the approved deterministic method**.
+
+### 10.2 Conditions attached to the approval
+
+These are mandatory requirements, not preferences. Each is a testable property of the engine.
+
+| # | Condition | Consequence if breached |
+|---|---|---|
+| **C-13.1** | **Preserve the complete processor fee** as its own recorded amount | The fee can no longer be reconciled against processor evidence |
+| **C-13.2** | **Preserve the product-attributable component** separately from the total | Product-level margin becomes unauditable |
+| **C-13.3** | **Preserve the order-level residual separately**, named and drillable | The residual becomes invisible and gets absorbed into product figures |
+| **C-13.4** | **No artificial zero-residual reconciliation** — the engine must never force allocated + residual to equal the total by fabricating an allocation | The reconciliation control that catches fee errors is destroyed |
+| **C-13.5** | **Reconcile against actual processor evidence where available** | Estimated fees are never trued up, and the estimate silently becomes the reported figure |
+| **C-13.6** | **Distinguish estimated, provisional and confirmed fees** | A merchant cannot tell an estimate from an actual |
+| **C-13.7** | **Support better evidence later without silently changing historical results** | Historical figures mutate, violating INV-19 |
+
+**On C-13.4 specifically:** the founder's phrasing — avoid artificial zero-residual reconciliation — is stronger than the brief's original requirement. The brief asked that allocated + residual + tax-related + fixed equal the total (which they do, exactly: 444 + 63 + 33 + 30 = 570 ≠ 507 — see §10.3). The condition additionally forbids *ever* manufacturing an allocation to make a residual disappear. The residual is a fact to be displayed, not a defect to be smoothed.
+
+### 10.3 Reconciliation identity, restated to match the conditions
+
+The approved structure must satisfy, for every charge:
+
+```
+fee_total              = 507   (preserved in full)              C-13.1
+fee_product_allocated  = 444   (deterministic, per §3)          C-13.2
+fee_order_residual     =  63   (explicit, named)                C-13.3
+fee_tax_related        =  33   (not product revenue based)
+[`fee_fixed_platform`] =  30   (not product revenue based)
+```
+
+with the check:
+
+```
+fee_total  =  fee_product_allocated + fee_tax_related + fee_fixed_platform
+507        =  444 + 33 + 30  =  507   ✓
+
+fee_order_residual (63) is the portion of the 444 that is not product-attributable,
+and is reported as an order-level cost. It is NOT an additional amount.
+```
+
+**This is the clarification the conditions demand.** The 63 is *inside* the 444, not beside it. Allocated 444 = product-attributable 381 + order-level residual 63. The 33 and 30 were never in the product allocation base, so they never enter the residual either. Stating it the other way — 444 allocated *plus* 63 residual — would double-count 63, and that is precisely the error C-13.3 and C-13.4 exist to prevent.
+
+Restated fully:
+
+```
+fee_total               507
+  ├─ fee_tax_related      33   order-level, not product-allocated
+  ├─ fee_fixed_platform   30   order-level, not product-allocated
+  └─ fee_variable        444   the product-allocation base
+       ├─ allocated to products   381
+       └─ order-level residual     63   (12.4% of 507, 14.2% of 444)
+```
+
+### 10.4 The evidence-grade requirement (C-13.5, C-13.6, C-13.7)
+
+A fee figure carries exactly one grade at any time:
+
+| Grade | Source | May it be reported as the fee? |
+|---|---|---|
+| `estimated` | Configured rate card applied to the charge | Yes, labelled estimated |
+| `provisional` | Processor reports a pending or unsettled amount | Yes, labelled provisional |
+| `confirmed` | Settled or charged amount from processor evidence | Yes, labelled confirmed |
+
+Rules:
+
+1. A grade may move **upward** (estimated → provisional → confirmed) only by recording a **new event** that references the evidence. It never mutates the prior event (INV-19).
+2. A higher grade does **not** retroactively rewrite a published historical figure. It creates a **new calculation** under a new calculation version; the old calculation remains reproducible.
+3. If a confirmed amount contradicts the estimate, the difference is an explicit **adjustment**, never a silent correction.
+4. **The founder's forward-looking requirement:** do not assume future processors cannot supply more detailed fee evidence. The design must accommodate a processor that later exposes per-charge or per-line fee detail, without changing historical results silently. This means the allocation method and the evidence grade are separate, versioned concerns — a better-evidenced fee is a new event with a higher grade, not a rewrite of the method.
+
+### 10.5 What remains open
+
+Approval in principle does **not** close these. They are unchanged from §7.
+
+| Open item | Owner | Blocks |
+|---|---|---|
+| Recognition timing — charge date vs settlement date across periods | Professional accounting review | D-18 interaction, G2 |
+| Fixed component: order cost vs period cost; monthly platform fees | Professional accounting review | G2 |
+| True-up presentation: revision vs adjustment event | Professional accounting review | G2 |
+| Fee refund presentation where the fixed component is retained (INV-22) | Professional accounting review | G2 |
+| Tax treatment of the tax-related fee | Tax review | G3 |
+| **Does the processor expose an actual per-charge fee?** | Provider verification (official docs + recorded payload) | Fee evidence grade; G2/G3 |
+| FX basis for a fee charged in settlement currency | D-05 decision | G0/G3 |
+
+### 10.6 Implementation status
+
+**None.** No allocation method, evidence-grade mechanism, reconciliation check or adjustment path has been implemented or tested. This section records an approved principle and its conditions, not a working control.
