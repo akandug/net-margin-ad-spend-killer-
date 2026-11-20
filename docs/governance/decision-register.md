@@ -140,7 +140,90 @@ Leaving these conditions unenforced would let an unvalidated document masquerade
 3. Order-date COGS uses the **applicable cost snapshot at order date**; shipment-date COGS uses the **shipment-date snapshot**. A COGS revision between those dates legitimately produces different figures in each view — that is expected, not an error, and must be traceable to the two snapshots.
 4. View is a **reporting dimension**, not a mutation: neither view writes over the other's results.
 
+#### 3.5.1 Quantity state partition (the model that makes both views safe)
+
+Both views must survive orders that ship in parts, are partly cancelled, and are partly refunded. That is only tractable if every ordered unit is always in **exactly one state**, derived from events rather than stored in a mutable column:
+
+| State | Meaning |
+|---|---|
+| `pending` | Ordered; not shipped, not cancelled, not refunded |
+| `shipped_not_returned` | Left in a shipment (carries shipment id and date) |
+| `shipped_returned` | Shipped, then returned/refunded |
+| `cancelled_before_shipment` | Cancelled before any shipment |
+| `refunded_before_shipment` | Refunded before any shipment |
+
+State is **derived from the event history**, never stored as a mutable status field (INV-19). Permitted transitions only: `pending → shipped_not_returned | cancelled_before_shipment | refunded_before_shipment`, and `shipped_not_returned → shipped_returned`. **No reverse transitions**; a correction is a new event.
+
+**Proposed INV-26 — quantity state partition.** For every line, at every point in time, the quantities across the five states sum exactly to the ordered quantity, and no unit occupies two states. *Status: proposed, not approved.* This is the invariant that makes partial shipments and partial refunds testable rather than merely described.
+
+#### 3.5.2 Partial shipments and multiple shipments
+
+**Fulfilment View** recognises per **shipment**, not per order:
+
+- `revenue_shipment` = Σ over lines in that shipment of (net revenue per unit × shipped qty), where net revenue per unit = line gross per unit − allocated discount per unit.
+- `discount per unit` = line allocated discount ÷ line quantity, rounded by **largest remainder on the final unit** so the per-unit amounts sum exactly to the line's allocated discount. No balancing plug.
+- `COGS_shipment` = Σ over lines of (unit cost from the **shipment-date** snapshot × shipped qty).
+- `shipping revenue` is attributed across shipments pro-rata by shipped line net revenue, largest remainder, final shipment taking the residual. **This is a policy choice and is flagged below as D-10a.**
+- `outbound shipping cost` and `fulfilment/packaging` are **naturally per shipment**, so a split order genuinely carries two costs. That is a real economic fact the platform should surface, not an allocation artefact: splitting shipments reduces contribution profit.
+
+**Multiple shipments against one order** are independent events, each with its own date and cost snapshot. The same product may therefore carry **different unit costs across two shipments** of the same order if the snapshot moved between them. That is legitimate and must be traceable to two distinct snapshots — not averaged, and not forced to agree.
+
+**Unshipped units are not recognised in the Fulfilment View.** Their revenue and COGS remain pending, visible as unfulfilled value, and are never dropped.
+
+**Commercial Management View is unchanged by shipment state**: full order net revenue and full order-date COGS on the order date. A partial shipment does not alter it. This is the defining difference between the views and the reason the difference must be labelled a timing difference.
+
+#### 3.5.3 Partial cancellations and partial refunds
+
+A cancellation or refund is **its own event on its own date**. It never rewrites the original order-date or shipment-date figure (INV-16, INV-19). Its effect is recognised in each view **according to what that view had already recognised**:
+
+| Event | Commercial Management View | Fulfilment View |
+|---|---|---|
+| Unit refunded/cancelled **before shipment** | Revenue and order-date COGS were recognised at order date → both reversed on the event date | Nothing was recognised → reduces the pending amount; **no revenue and no COGS reversal** |
+| Unit refunded **after shipment** (return) | Reversal on the event date | Revenue and COGS were recognised at shipment → both reversed on the event date |
+
+**The same refund therefore has different view-level effects.** That is correct, not an inconsistency, and it is precisely why the views cannot be merged into one measure.
+
+The refund's merchandise component is bounded by INV-02 at line level and reduced by the unit's allocated discount per the basis established by **F-01** — which is **still open**. Until the captured payload settles whether `subtotalSet` is net or gross of discount, the engine runs the labelled interim assumption recorded in §4.9, and D-09 remains unresolved.
+
+**Period assignment (D-18 interaction).** Reversals land in the period of the event, not the period of the order. A cancellation of a prior-period order is an adjustment in the current period. Whether that is the correct *statutory* presentation is a professional accounting question (§6); the management design records both dates and does not restate silently.
+
+#### 3.5.4 Preventing accidental aggregation or comparison across views
+
+Six enforcement rules (design requirements, not implemented):
+
+1. `calculation_view` is part of **calculation identity** alongside period and calculation version.
+2. Snapshot keys include the view. **A read without a view fails closed** — there is no silent default.
+3. Every aggregation must group by view. Combining rows from two views is an **error**, never a union.
+4. A deliberate cross-view comparison is presented only as a **timing difference**, reconciled by the identity in §3.5.5 — never as a blended or averaged figure.
+5. No "combined" or "average of both views" figure is ever stored or displayed.
+6. Merchant-facing labels carry the view qualifier. "Contribution profit" without a qualifier is **prohibited** in UI, exports and API responses.
+
+#### 3.5.5 Proposed INV-27 — view reconciliation identity
+
+For a period P and scope S, the two views must differ by an amount **fully explainable by named unit sets**:
+
+```
+CP_commercial(P) − CP_fulfilment(P)  =  A(P) + B(P) + C(P)
+
+A = for units still `pending` at period end:
+      net revenue recognised in commercial only  −  order-date COGS
+B = for units shipped in P:
+      shipment-date COGS  −  order-date COGS        (the snapshot difference)
+C = period-boundary timing on units refunded or cancelled before shipment
+      in a period later than their order date
+```
+
+If the left side cannot be reconciled to A + B + C from the event history, the calculation is defective and must fail rather than present either view's figure. *Status: proposed, not approved.*
+
 **Dependencies and remaining gates:** D-06 and D-07 still block **G2** (§5); statutory treatment stays in the professional review register (§6); the view dimension must exist in the G2 schema before any merchant-visible profitability (G3).
+
+**Raised by this extension — one new sub-decision for founder approval:**
+
+| ID | Sub-decision | Proposed default | Status |
+|---|---|---|---|
+| **D-10a** | How shipping revenue charged once is attributed across multiple shipments of one order | Pro-rata by shipped line net revenue, largest remainder, residual on the final shipment | **OUTSTANDING** — new, not yet in the approval matrix |
+
+Also noted: D-11 (estimated outbound shipping) and D-12 (fulfilment and packaging) must key on **shipment**, not order, for the same reason.
 
 ---
 
@@ -360,7 +443,14 @@ The following must be decided by the founder before the named gate can open. Eac
 
 **Resolved since this register was created:** the canonical product name is fixed (see the header note). P-01–P-05 documentation research is complete per §4, manual Meta billing evidence is approved with conditions (§3.4), and the F-1 two-view management design is approved as a management direction (§3.5). **Still required:** the F-01 provider evidence fixture (§4.9) — the capture procedure is written but no payload exists — and the deferred live Supabase checks (§4.6.1) once G0 settles.
 
-**Decision preparation:** eight G0/G2 decisions (D-05, D-06, D-07, D-08, D-09, D-13, D-18, D-20) now have a preparation report with worked examples, consequences, dependencies and review requirements — `docs/governance/g0-g2-decision-preparation.md`. That report **does not change any status in this register**; it separates product-design conventions from matters requiring professional review, and it records one cross-decision inconsistency (D-06 revenue on order date versus D-07 COGS on shipment date) — **since resolved by founder direction as a two-view management design (§3.5)**, with statutory treatment still subject to professional review.
+**Decision preparation:** eight G0/G2 decisions (D-05, D-06, D-07, D-08, D-09, D-13, D-18, D-20) now have a preparation report with worked examples, consequences, dependencies and review requirements — `docs/governance/g0-g2-decision-preparation.md`.
+
+**Individual decision briefs prepared for founder review (neither changes a status):**
+
+- `docs/governance/d13-payment-fee-allocation-decision-brief.md` — D-13. Variable and fixed fee components, why the tax-related and fixed components are not product-attributable, the 63-of-507 (12.4%) example reproduced and reconciled, the effect of spreading the residual (order and store profit unchanged; product-level profit corrupted), the flow into store-level contribution profit, and open accounting/tax/provider questions. **D-13 remains OUTSTANDING.**
+- `docs/governance/d20-data-retention-erasure-decision-brief.md` — D-20. Three-store separation of PII from the ledger, random tenant-scoped references, per-subject envelope encryption and crypto-shredding, the **backup-restore failure mode** and the unverified key-store dependency, retention as jurisdiction-keyed configuration with **no invented periods**, and the deletion-request sequence. **D-20 remains PROFESSIONAL REVIEW REQUIRED.**
+
+That report **does not change any status in this register**; it separates product-design conventions from matters requiring professional review, and it records one cross-decision inconsistency (D-06 revenue on order date versus D-07 COGS on shipment date) — **since resolved by founder direction as a two-view management design (§3.5)**, with statutory treatment still subject to professional review.
 
 ---
 
@@ -406,3 +496,5 @@ Until explicitly authorised by the founder, the following remain prohibited:
 | 2026-11-17 | Canonical product name recorded as **Net-Margin Ad Spend Killer** (subtitle: Net-Margin Ad Spend Protection Platform). P-01–P-05 documentation research executed and recorded in §4: all five PARTIALLY VERIFIED, no item fully verified, no live account or database used. D-09 remains blocked on a refund fixture; Shippo recommended for P-04. |
 | 2026-11-17 | **F-1 resolved by founder direction — two-view management design recorded (§3.5).** Commercial Management View (revenue and COGS both on order date, primary) and Fulfilment View (both on shipment date) approved as the **proposed management design, not a statutory accounting policy**. Order and shipment events and timestamps preserved; view becomes a required calculation dimension. D-06/D-07 stay unapproved as accounting policies and still block G2. **F-01:** route B chosen (founder captures in their own development store); founder currently has no development store, so no capture occurred. **Standalone capture procedure written** (`f01-shopify-refund-evidence-capture-procedure.md`) with a pre-stated numeric discriminator, redaction and validation requirements, and minimum read-only scopes. **F-01, D-09 and the affected part of INV-02 remain OPEN.** No code, schema, migration, test, credential, provider connection or deployment. |
 | 2026-11-17 | **G0/G2 decision preparation report added** (`g0-g2-decision-preparation.md`): D-05, D-06, D-07, D-08, D-09, D-13, D-18, D-20 each with recommendation, worked example, consequences, dependencies and review requirement. Eight product-design conventions separated from seven matters requiring accounting/tax/legal review; D-09 confirmed unresolvable without F-01. Five cross-decision findings recorded, including the D-06/D-07 period mismatch (F-1) and the requirement that PII stay out of the ledger for D-20 to coexist with INV-19 (F-4). **No status in this register changed.** No code, schema, migration, test, credential or connection created. |
+| 2026-11-17 | **F-1 two-view specification extended (§3.5.1–§3.5.5)** per founder direction: quantity state partition for partial shipments, multiple shipments per order, partial cancellations and partial refunds; per-shipment revenue/COGS attribution with largest-remainder discount allocation; the differing view-level effect of a refund before versus after shipment; and six rules preventing cross-view aggregation or comparison, including fail-closed reads and the prohibition on unqualified "contribution profit". **Two invariants proposed, not approved: INV-26 (quantity state partition) and INV-27 (view reconciliation identity).** **One new sub-decision raised: D-10a** (shipping revenue attribution across multiple shipments) — OUTSTANDING, not in the matrix. D-11 and D-12 noted as shipment-keyed. F-01, D-09 and the affected part of INV-02 remain OPEN. No status change, no code, no schema, no migration, no test, no deployment. |
+| 2026-11-17 | **D-13 and D-20 founder decision briefs written** (`d13-payment-fee-allocation-decision-brief.md`, `d20-data-retention-erasure-decision-brief.md`) and indexed in §5. D-13 brief reproduces the 63-of-507 example, shows that spreading the residual leaves order and store profit unchanged while corrupting product-level profit and the fee reconciliation, and lists seven open accounting/tax/provider questions. D-20 brief specifies the three-store model, random (not hashed) pseudonymous references, per-subject envelope encryption, and the **backup-restore failure mode that requires key material outside the database backup scope** — flagged as an unverified dependency that may need an external KMS. **No retention period is asserted anywhere**; all periods are marked as jurisdiction-specific legal/tax determinations. **No status changed: D-13 OUTSTANDING, D-20 PROFESSIONAL REVIEW REQUIRED.** No code, schema, migration, test, credential, Supabase connection or deployment. |
