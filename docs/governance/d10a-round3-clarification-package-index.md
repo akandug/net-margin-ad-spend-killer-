@@ -45,6 +45,7 @@ It does **not** change any approval status. D-10a remains APPROVED WITH CONDITIO
 | A-8 | **D2-11** Excess classified, never clamped | ☐ |
 | A-9 | **D2-15** Tie-break `(line_identity, unit_index)`, fail closed on non-uniqueness | ☐ |
 | A-10 | **D2-16** PROP-C as one invariant, with provenance recorded | ☐ |
+| A-11 | **D2-05** Versioning mandatory in MVP; correction workflow and merchant dispute at pilot | ☐ |
 
 ### Group B — mechanism now, merchant-facing claim gated
 
@@ -105,6 +106,7 @@ These are not technical, and I am not answering them for you:
 | No approval status changed | Register tally unchanged; no decision block edited |
 | No invariant number allocated | PROP-C referenced by name throughout |
 | Numeric figures consistent across documents | 287/287/426, 12/1,188, 334/333/333, 713 vs 287, 1,200, 3,700 — arithmetic verified in the previous round, unchanged here |
+| Register completeness rechecked against source | All 16 D2 IDs present. **D2-05 was missing from the first draft and has been restored**; group A is 11, total 17 rows for 16 IDs. The omission and its correction are recorded in the register file |
 | **No application test executed** | No code exists in the repository |
 | **No provider behaviour verified this round** | No provider documentation consulted this round; earlier P-01–P-05 findings unchanged |
 

@@ -9,7 +9,7 @@ Full rule text, worked counterexamples and per-decision detail live in `founder-
 
 ---
 
-## Group A — Approvable now (10 decisions)
+## Group A — Approvable now (11 decisions)
 
 No external evidence, no accounting opinion. Each rests on internal consistency and has a worked counterexample.
 
@@ -17,6 +17,7 @@ No external evidence, no accounting opinion. Each rests on internal consistency 
 |---|---|---|---|---|---|---|---|
 | **D2-02** | Canonical encoding and stored digest of the association vector | Length-prefixed injective string `v1`, charges ordered by byte comparison; store canonical string **and** `SHA-256(canonical)` | Two orders with identical labels but different vectors cannot share an identity — prevents silent comparison | MVP | No | None | Adopt. **Approve** storing the preimage beside the digest and freezing `v1` as identity governance |
 | **D2-04** | Late-arriving association evidence | Vector frozen at acceptance; late evidence annotates (`association_evidence_late`), never reallocates; contradiction raises `A3_contested` and may propose a correction | Same order reports the same product figures every day; no unexplained movement | MVP | No | None | Adopt. **Approve** that late evidence never auto-reallocates, at any stage |
+| **D2-05** | Correction workflow versus versioned architecture | **MVP:** `allocation_version`, immutable allocation records, `supersedes` link, retained `snapshot_id`, stored digest, engine able to compute `n+1`. **Pilot:** `correction_requested` / `correction_authorised` events and merchant dispute flow | A correction creates a new calculation identity and moves product-level figures only; the store total is invariant (1,200 unchanged, product A moved by 2) | MVP (versioning); Pilot (workflow) | No | None external | Adopt the split. Absence of an authorisation workflow is **safe** — nothing incorrect is produced. Absence of versioning is **not** — fixing a wrong association would require overwriting it, violating INV-19 and destroying the evidence behind earlier figures. **Approve the split**; decide OQ-P1-4 (who may authorise) |
 | **D2-06** | Two recognition states | `recognised(u) ∈ {pending, recognised}`, derived from shipment events only; monotone, never returns to pending | Makes the Fulfilment View computable; a collapsed state destroys the per-unit shipment timestamp | MVP | No | None | Adopt. **Approve** the two-state model and monotonicity |
 | **D2-07a** | Orthogonal dimensions and typed reduction events *(structural half of D2-07)* | Four reduction types: `cancellation_release`, `shipping_discount`, `shipping_refund`, `correction`; dimensions fulfilment(3) × disposition(5) × payment(6) kept orthogonal; two separate identities | E-5: three reductions on one unit (100 + 200 + 126 = 426) all retained; a five-bucket model keeps one reason and loses two | MVP | No | None | Adopt. **Approve** the four types, orthogonality and the two-identity separation |
 | **D2-08** | Immutable events versus derived status | Layer 1 immutable `charge_observed`/`reduction_observed` with `provider_ts` and `ingestion_ts`; Layer 2 status is a pure function of the event set, never a column | Order-independence by construction; CX-D gives the same answer under reversed delivery | MVP | No | None | Adopt. **Approve** derived-not-stored status |
@@ -67,9 +68,15 @@ Full reasoning in `d10a-round3-d2-07-classification-resolution.md`. **D2-07's re
 
 | Group | Count | Decisions |
 |---|---|---|
-| A — approvable now | 10 | D2-02, D2-04, D2-06, D2-07a, D2-08, D2-09, D2-10, D2-11, D2-15, D2-16 |
+| A — approvable now | 11 | D2-02, D2-04, D2-05, D2-06, D2-07a, D2-08, D2-09, D2-10, D2-11, D2-15, D2-16 |
 | B — mechanism now, claim gated | 3 | D2-01, D2-03, D2-13 |
 | C — statutory review deferred | 3 | D2-07b, D2-12, D2-14 |
-| **Total** | **16** | Accounting for D2-07 as two decisions |
+| **Total** | **17** | 16 distinct IDs (D2-01 to D2-16), D2-07 counted twice as D2-07a / D2-07b |
 
 **Nothing in this table is approved.** Approving a Group A item closes that decision; it does not close D-10a, does not satisfy C-10a.1, and does not authorise implementation.
+
+---
+
+## Correction recorded
+
+D2-05 was **omitted from the first draft of this table** and restored during verification, when a completeness check showed 16 rows for 16 IDs with D2-05 absent. The omission is recorded rather than silently repaired: a decision register that drops a decision is the exact failure mode this table exists to prevent, and the check that caught it was a mechanical ID count, not a reading of the content.
