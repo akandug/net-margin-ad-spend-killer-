@@ -48,7 +48,7 @@ These were explicitly approved by the founder. They establish **design and gover
 
 Status vocabulary: **APPROVED** · **APPROVED WITH CONDITIONS** · **DEFERRED** · **OUTSTANDING** · **PROFESSIONAL REVIEW REQUIRED**
 
-**No D decision is APPROVED in full.** Three are **APPROVED WITH CONDITIONS**: D-15 (manual billing-evidence route only, §3.4), **D-13** (approved in principle on 2026-11-20 — conditions in §3.6), and **D-20** (architectural principles only — conditions in §3.7). For D-13 and D-20 the conditions are substantive and the professional and provider reviews remain open; **neither decision is closed**.
+**No D decision is APPROVED in full.** Four are **APPROVED WITH CONDITIONS**: D-15 (manual billing-evidence route only, §3.4), **D-13** (approved in principle on 2026-11-20 — conditions in §3.6, G2 advisory in §3.6.1), **D-20** (architectural principles only, for schema preparation — conditions in §3.7), and **D-10a** (allocation principle approved 2026-11-20 — conditions in §3.5.6). For all four the conditions are substantive and the professional and provider reviews remain open; **no decision is closed**. Conditional architectural approval is not implementation or production-readiness approval.
 
 | ID | Decision | Recommended option | Status | Gate |
 |---|---|---|---|---|
@@ -72,7 +72,9 @@ Status vocabulary: **APPROVED** · **APPROVED WITH CONDITIONS** · **DEFERRED** 
 | D-22 | Co-Pilot guardrail defaults | A — the seven-guardrail default table (see §3.2) | OUTSTANDING | G4 |
 | D-23 | Attribution presentation | A — platform-reported and internal allocation both stored and shown, never blended | OUTSTANDING | G3 |
 
-**Tally:** APPROVED 0 · APPROVED WITH CONDITIONS 3 (D-13, D-15, D-20 — all conditional) · DEFERRED 1 · OUTSTANDING 9 · PROFESSIONAL REVIEW REQUIRED 6.
+**Tally:** APPROVED 0 · APPROVED WITH CONDITIONS 4 (D-10a, D-13, D-15, D-20 — all conditional) · DEFERRED 1 · OUTSTANDING 8 · PROFESSIONAL REVIEW REQUIRED 6.
+
+4 + 1 + 8 + 6 = 19, which is the full D-05–D-23 set. **No decision has moved to APPROVED in full, and none can without the outstanding professional reviews.**
 
 D-20's move out of PROFESSIONAL REVIEW REQUIRED reflects approval of its **architectural principles only**. Its retention and key-management policy is both outstanding and subject to professional review, tracked in §3.7. D-13's move out of OUTSTANDING reflects approval **in principle** only; its accounting, tax and provider questions are unchanged.
 
@@ -225,7 +227,7 @@ If the left side cannot be reconciled to A + B + C from the event history, the c
 
 | ID | Sub-decision | Proposed default | Status |
 |---|---|---|---|
-| **D-10a** | How shipping revenue charged once is attributed across multiple shipments of one order | Allocate the original shipping revenue over **quantities** at order acceptance, pro-rata by discounted line net revenue, largest remainder resolved once across all units; recognise each quantity's share on shipment; unshipped stays pending; cancellation / shipping discount / shipping refund are explicit release or reversal events; no residual on the final shipment | **OUTSTANDING — revised and re-submitted** for founder approval (§3.5.6) |
+| **D-10a** | How shipping revenue charged once is attributed across multiple shipments of one order | Allocate the original shipping revenue over **quantities** at order acceptance, pro-rata by discounted line net revenue, largest remainder resolved once across all units; recognise each quantity's share on shipment; unshipped stays pending; cancellation / shipping discount / shipping refund are explicit release or reversal events; no residual on the final shipment | **APPROVED WITH CONDITIONS (principle, 2026-11-20)** — conditions C-10a.1–C-10a.5 and the professional-review items remain open (§3.5.6) |
 
 Also noted: D-11 (estimated outbound shipping) and D-12 (fulfilment and packaging) must key on **shipment**, not order, for the same reason.
 
@@ -241,7 +243,27 @@ The revised rule allocates **at order acceptance, down to individual quantities*
 4. Recognise each quantity's share in the Fulfilment View **when that quantity ships**. Unshipped shares remain pending and visible.
 5. Cancellation, shipping discount and shipping refund are **explicit release or reversal events** on their own dates, never edits to the original allocation.
 
-Full worked examples — multiple shipments, partial cancellation, free shipping, shipping discount, multiple shipping charges, incomplete fulfilment and shipping refund — in `docs/governance/d10a-shipping-revenue-allocation-decision-brief.md`. **D-10a remains OUTSTANDING and is re-submitted for approval.**
+Full worked examples — multiple shipments, partial cancellation, free shipping, shipping discount, multiple shipping charges, incomplete fulfilment and shipping refund — in `docs/governance/d10a-shipping-revenue-allocation-decision-brief.md`.
+
+#### D-10a — founder approval record (2026-11-20)
+
+**Previous status:** OUTSTANDING (re-submitted after the residual-on-final-shipment rule was rejected). **Status now:** **APPROVED WITH CONDITIONS** — the allocation *principle* only.
+
+**What the founder approved:** shipping revenue is allocated **once at order acceptance** across eligible individual quantities by deterministic largest-remainder arithmetic; each quantity retains its original allocation identity; in the Fulfilment View that quantity's allocated shipping revenue is recognised **when that quantity ships**; cancellations, shipping discounts, subsequent shipping-charge changes and shipping refunds are represented by **explicit adjustment, release or reversal events**; the original allocation is never silently rewritten; **no unexplained residual is assigned to the final shipment.**
+
+**Conditions (all testable, none yet tested):**
+
+| ID | Condition |
+|---|---|
+| C-10a.1 | The complete specification and all worked examples are **internally consistent** — the same inputs cannot yield different allocations across documents |
+| C-10a.2 | Allocation is computed **once**, at order acceptance, and never recomputed later from changed inputs |
+| C-10a.3 | Each quantity's share is carried as a distinct identity that survives shipment, cancellation, refund and partial fulfilment without reallocation |
+| C-10a.4 | Unshipped allocations remain **pending**, never recognised early and never released silently |
+| C-10a.5 | Every change after acceptance — cancellation, shipping discount, charge change, shipping refund — produces an explicit event; no in-place edit of a prior allocation |
+
+**Still open (unchanged by this approval):** whether shipping revenue is a separate performance obligation for statutory revenue recognition (professional accounting review); tax treatment of shipping charged to customers, including whether shipping tax belongs in the allocation base (professional tax review); treatment of shipping revenue on orders where shipping is charged but goods are never shipped; and the FX basis for shipping revenue in a non-reporting currency.
+
+**Not authorised by this approval:** any engine, schema, migration or test implementation.
 
 ---
 
@@ -268,6 +290,26 @@ fee_total 507
 
 **Location:** `docs/governance/d13-payment-fee-allocation-decision-brief.md` §10.
 
+### 3.6.1 D-13 — G2 advisory (founder direction, 2026-11-20)
+
+D-13 remains **APPROVED WITH CONDITIONS in principle**, but the founder directed that its unresolved fee-recognition questions be carried as an **explicit G2 advisory** rather than dissolved into the approval. G2 cannot be declared passed while the advisory is neither cleared nor formally accepted as a disclosed limitation.
+
+**Advisory content — the questions that stay open:**
+
+1. **Fee recognition timing** — whether processor fees are recognised at order time (estimated), at capture, or at settlement, and how a fee recognised in one period and settled in another is presented without restatement.
+2. **Accounting treatment** of the order-level residual: is it a period cost, a cost of the order, or part of a fulfilment-cost pool?
+3. **Tax treatment** of the tax-related component (the 33 in the worked example): is a fee charged on tax deductible in the same proportion as the underlying tax?
+4. **Provider evidence** — whether the processor exposes an actual per-charge fee at all. **Unverified.** No provider documentation has been checked and no payload recorded.
+
+**Arithmetic that must be preserved exactly, and must never be presented as additive:**
+
+```
+444 = 381 product-attributable variable fee + 63 order-level residual
+507 = 444 + 33 variable fee on tax + 30 fixed fee
+```
+
+The 63 is **inside** the 444. **Never display 444 allocated plus 63 residual as though they were separate additions to the total fee** — that double-counts 63 and would overstate processor cost by 12.4%. This is a presentation rule with a financial consequence, not a formatting preference.
+
 ### 3.7 D-20 — founder-approved architectural principles and the open policy
 
 **Previous status:** PROFESSIONAL REVIEW REQUIRED. **Proposed status:** APPROVED WITH CONDITIONS, principles only.
@@ -282,6 +324,30 @@ The specification required before implementation is delivered at `docs/governanc
 
 1. **Key material inside the database cannot survive a restore** — including in-database secret facilities, because they are inside the same backup scope. Any such design fails the approved principle by construction.
 2. **Erasure must also block re-establishment.** A restored backup restores the identity row; the next webhook then writes *new* personal data for an erased subject, and no read-blocking control fires. Erasure needs a tombstone consulted on **writes**, not only reads.
+
+#### D-20 — founder conditions (2026-11-20), binding
+
+The founder approved the **hybrid architectural direction for schema preparation**: external subject-level key destruction or irreversible revocation, an independently protected erasure register/tombstone, and identity indirection between the financial ledger and erasable identity information. Seven conditions attach, each mapped to controls and tests in the new specification:
+
+| Condition | Requirement | Founder letter |
+|---|---|---|
+| C-20.1 | Key material and the authoritative erasure record must **not depend solely on PostgreSQL or its backup scope** | a |
+| C-20.2 | The erasure register must **resist rollback** and must not be resurrected in an earlier state by a database restore | b |
+| C-20.3 | **All** ingestion, webhook and identity-creation paths must consult the register **before** writing personal information | c |
+| C-20.4 | Missing or unavailable erasure evidence must cause the affected identity write to **fail closed** | d |
+| C-20.5 | A database restoration must trigger **erasure reconciliation before** new identity writes are permitted | e |
+| C-20.6 | Delayed webhooks, replayed events and integration retries must **not recreate** erased personal information | f |
+| C-20.7 | The architecture must explain how erased subjects are **recognised without retaining their erased PII** | g |
+
+**Scope limits of this approval — restated so it cannot drift:** this is approval of an architectural direction and of the requirement to support identity indirection in future schema design. It is **not** approval of a specific KMS vendor, a paid service, final key-management implementation, any retention period, or production deployment. **No retention period is asserted anywhere in this register**; periods are jurisdiction-specific legal, tax and accounting determinations, and data minimisation applies rather than retaining all personal information for the longest financial-record period.
+
+**Required specification, now delivered:** `docs/governance/d20-restore-and-erasure-threat-model-and-test-specification.md` — 14 threats (T-01–T-14), 7 restore scenarios (R-01–R-07), the monotonic-sequence reconciliation rule, the recognition-without-retention design, condition-to-control-to-test traceability for (a)–(g), 22 test cases (TE-01–TE-22), an evidence standard that must be met before any test may be marked passed, and five open questions requiring founder decision.
+
+**Three findings in that specification deserve founder attention now:**
+
+1. **A rolled-back register must block service, not reconcile silently.** If the database claims to have applied erasure 412 while the register's maximum is 407, the *register* has lost state. The correct response is to refuse identity writes **and** merchant-visible reads, not to guess which side is right. A design that only handles "database is behind" misses this case entirely.
+2. **Recognition without retention has a bounded weakness.** Provider customer identifiers are frequently small integers, so a keyed hash alone becomes enumerable if the matching key leaks. The specification adds a per-tombstone salt and a deliberately slow KDF, and states the residual risk plainly rather than claiming zero. `K_match` must be treated as a top-tier secret with rotation support.
+3. **The likeliest erasure failure is not a restore — it is scope creep.** Honouring an erasure request by deleting financial events would destroy auditability (T-14). Erasure scope must be **identity only, always**, and the ledger must be structurally incapable of mutation (INV-19).
 
 ---
 
@@ -491,9 +557,9 @@ A synthetic fixture **cannot** settle whether `refund_line_items[].subtotal` is 
 
 The following must be decided by the founder before the named gate can open. Each retains its exact options and recommendation from the delivered register.
 
-**Blocking G2 (financial correctness):** D-06, D-07, D-08, D-09, D-18. **D-13 no longer blocks G2**, having been approved in principle with conditions (§3.6) — provided those conditions are enforced and its open accounting/provider questions are resolved before G2 is declared passed.
+**Blocking G2 (financial correctness):** D-06, D-07, D-08, D-09, D-18. **D-13 no longer blocks G2 as an unresolved decision**, having been approved in principle with conditions (§3.6) — provided those conditions are enforced **and** its open fee-recognition, accounting, tax and provider questions are cleared or formally accepted as a disclosed limitation. Those questions are carried as an explicit **G2 advisory** (§3.6.1); G2 cannot be declared passed while that advisory is open and unaccepted.
 
-**Blocking G3 (merchant-visible profitability):** D-10, D-11, D-12, D-16, D-17, D-19, D-20, D-21, D-23. D-15 is approved with conditions (§3.4) and no longer blocks, provided those conditions are enforced. D-20's **architectural principles** are approved (§3.7), but its key-management selection and retention periods still block G3.
+**Blocking G3 (merchant-visible profitability):** D-10, D-11, D-12, D-16, D-17, D-19, D-20, D-21, D-23. D-15 is approved with conditions (§3.4) and no longer blocks, provided those conditions are enforced. D-20's **architectural principles** are approved (§3.7), but its key-management selection and retention periods still block G3. **D-10a no longer blocks G3**, having been approved with conditions (§3.5.6), provided C-10a.1–C-10a.5 are enforced in the engine and the specification remains internally consistent.
 
 **Blocking G4 (Co-Pilot):** D-22.
 
@@ -508,7 +574,7 @@ The following must be decided by the founder before the named gate can open. Eac
 - `docs/governance/d13-payment-fee-allocation-decision-brief.md` — D-13. Variable and fixed fee components, why the tax-related and fixed components are not product-attributable, the 63-of-507 (12.4%) example reproduced and reconciled, the effect of spreading the residual (order and store profit unchanged; product-level profit corrupted), and open accounting/tax/provider questions. **D-13: APPROVED IN PRINCIPLE 2026-11-20 (§3.6)**; §10 records the seven conditions, the corrected reconciliation identity and the evidence grades.
 - `docs/governance/d20-data-retention-erasure-decision-brief.md` — D-20. Three-store separation of PII from the ledger, random tenant-scoped references, per-subject envelope encryption and crypto-shredding, the **backup-restore failure mode**, retention as jurisdiction-keyed configuration with **no invented periods**. **D-20: architectural principles approved 2026-11-20 (§3.7)**; retention and key management remain open.
 - `docs/governance/d20-key-management-and-erasure-restore-specification.md` — D-20 implementation prerequisites: six key-management options compared on restore survival, immediacy, cost shape and strength if bypassed; the restore threat scenario; eight protection controls; the erasure reconciliation mechanism; cost assessment by structure. **Recommends the hybrid option; no KMS selected.**
-- `docs/governance/d10a-shipping-revenue-allocation-decision-brief.md` — **D-10a, revised and re-submitted.** Allocation at order acceptance down to individual quantities, largest remainder resolved once across all units, recognition per quantity on shipment, explicit release/reversal events, no residual on the final shipment. Seven worked examples. **D-10a remains OUTSTANDING.**
+- `docs/governance/d10a-shipping-revenue-allocation-decision-brief.md` — **D-10a, revised and re-submitted.** Allocation at order acceptance down to individual quantities, largest remainder resolved once across all units, recognition per quantity on shipment, explicit release/reversal events, no residual on the final shipment. Seven worked examples. **D-10a is APPROVED WITH CONDITIONS (§3.5.6)** — principle approved, conditions C-10a.1–C-10a.5 open, professional-review items open.
 - `docs/governance/inv26-quantity-state-specification.md` — **INV-26, revised.** Three independent dimensions (fulfilment, return/disposition, payment/refund), impossible-combination integrity controls, and the eight scenario walkthroughs. **Event-derived principle approved; this specification awaits approval.**
 - `docs/governance/inv27-calculation-identity-specification.md` — **INV-27.** The eight-element calculation identity, fail-closed rules, and the reproducible cross-view reconciliation artifact with its four-bucket decomposition. **Principle approved; test design outstanding.**
 
@@ -564,3 +630,4 @@ Until explicitly authorised by the founder, the following remain prohibited:
 | 2026-11-17 | **F-1 two-view specification extended (§3.5.1–§3.5.5)** per founder direction: quantity state partition for partial shipments, multiple shipments per order, partial cancellations and partial refunds; per-shipment revenue/COGS attribution with largest-remainder discount allocation; the differing view-level effect of a refund before versus after shipment; and six rules preventing cross-view aggregation or comparison, including fail-closed reads and the prohibition on unqualified "contribution profit". **Two invariants proposed, not approved: INV-26 (quantity state partition) and INV-27 (view reconciliation identity).** **One new sub-decision raised: D-10a** (shipping revenue attribution across multiple shipments) — OUTSTANDING, not in the matrix. D-11 and D-12 noted as shipment-keyed. F-01, D-09 and the affected part of INV-02 remain OPEN. No status change, no code, no schema, no migration, no test, no deployment. |
 | 2026-11-17 | **D-13 and D-20 founder decision briefs written** (`d13-payment-fee-allocation-decision-brief.md`, `d20-data-retention-erasure-decision-brief.md`) and indexed in §5. D-13 brief reproduces the 63-of-507 example, shows that spreading the residual leaves order and store profit unchanged while corrupting product-level profit and the fee reconciliation, and lists seven open accounting/tax/provider questions. D-20 brief specifies the three-store model, random (not hashed) pseudonymous references, per-subject envelope encryption, and the **backup-restore failure mode that requires key material outside the database backup scope** — flagged as an unverified dependency that may need an external KMS. **No retention period is asserted anywhere**; all periods are marked as jurisdiction-specific legal/tax determinations. **No status changed: D-13 OUTSTANDING, D-20 PROFESSIONAL REVIEW REQUIRED.** No code, schema, migration, test, credential, Supabase connection or deployment. |
 | 2026-11-20 | **Founder review of D-13, D-20, D-10a, INV-26 and INV-27. Four status changes.** **D-13:** OUTSTANDING → **APPROVED WITH CONDITIONS (in principle)** — residual stays order-level, seven conditions recorded (§3.6), including **no artificial zero-residual reconciliation** and estimated/provisional/confirmed grading; the double-counting trap (63 is *inside* the 444) recorded explicitly; accounting, tax and provider reviews remain open. **D-20:** PROFESSIONAL REVIEW REQUIRED → **APPROVED WITH CONDITIONS (architectural principles only)** (§3.7) — ledger/identity/audit separation, random pseudonymous references, and erasure surviving backup restore; key management and **all** retention periods remain open, with no period invented. **D-10a:** remains OUTSTANDING, **revised and re-submitted** — the residual-on-final-shipment rule was rejected and replaced by allocation at order acceptance down to individual quantities with the largest-remainder step resolved once, per-quantity recognition on shipment, and explicit release/reversal events. **INV-26:** event-derived principle approved, the five-state partition **rejected** and replaced by three independent dimensions. **INV-27:** approved as an architectural principle subject to specification and test design. Four new documents written; the register's rejected INV-26 model and D-10a rule were **corrected in place**, not merely superseded. F-01, D-09 and the affected part of INV-02 remain OPEN. **No code, schema, migration, test, Supabase provisioning, provider connection, credential or deployment. No control described here is implemented or verified.** |
+| 2026-11-20 (second review) | **Founder review of D-10a, D-20 and the D-13 G2 advisory. One status change, one advisory created, one required specification delivered.** **D-10a:** OUTSTANDING → **APPROVED WITH CONDITIONS** (§3.5.6) — allocation once at order acceptance across individual quantities, largest-remainder resolved once, per-quantity recognition on shipment, explicit adjustment/release/reversal events, no residual on the final shipment. Five conditions C-10a.1–C-10a.5 recorded; professional accounting and tax reviews remain open. **D-13:** remains AWC in principle, and its unresolved fee-recognition, accounting, tax and provider questions are now carried as an **explicit G2 advisory (§3.6.1)** that must be cleared or formally accepted before G2 passes; the 444 = 381 + 63 and 507 = 444 + 33 + 30 arithmetic is restated with the rule that 444 allocated plus 63 residual must **never** be displayed as additive. **D-20:** the architectural direction is approved **for schema preparation only**, with seven binding conditions (a)–(g) recorded in §3.7 — key material and the erasure register outside the database backup scope, rollback-resistant register, all identity-write paths consulting the register, fail-closed on missing erasure evidence, reconciliation before identity writes after a restore, no resurrection by replay, and recognition without retained PII. **The required restore-and-erasure threat model and test specification is delivered** (`d20-restore-and-erasure-threat-model-and-test-specification.md`): T-01–T-14, R-01–R-07, TE-01–TE-22 with an evidence standard, and five open questions. **INV-26** and **INV-27** now carry their full test registers (TC-26-01–TC-26-16 with fail-closed rules FC-26-1–FC-26-7; TC-27-01–TC-27-15 with reconciliation rules RR-27-1–RR-27-8). **No KMS vendor, paid service, retention period or implementation is approved. No test in any specification has been executed.** Register tally: APPROVED 0 / AWC 4 / DEFERRED 1 / OUTSTANDING 8 / PRR 6. F-01, D-09 and the affected part of INV-02 remain OPEN. |
