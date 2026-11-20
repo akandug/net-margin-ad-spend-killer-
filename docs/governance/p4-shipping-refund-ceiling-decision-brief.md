@@ -263,13 +263,28 @@ INV-30 is a **proposal**; numbering requires founder approval.
 
 ## 12. Scope warning — the audit's "P-5" is not editorial
 
-The audit listed a correction labelled **P-5** ("apply R8 per charge") among items it described as editorial. This brief records a disagreement:
+The audit listed a correction labelled **P-5** among items it described as editorial. Its exact wording is:
+
+> **P-5** | D-05 | Restate R8 per charge where R5 applies, with the order-level identity as the aggregate check. | Brief §2 R8
+
+This brief records a disagreement:
 
 - Applying the per-charge cap **changes the set of events that are accepted**. Under an order-only cap, a 700 refund against charge S1 (600) is accepted (700 ≤ 1,000); under a per-charge cap it is quarantined.
 - A change that alters which financial events are applied is, by the founder's own Part D boundary — "Do not make any change that alters financial meaning, allocation behaviour, event timing, calculation identity or approval scope under the label of editorial correction" — **substantive**.
 - It therefore belongs in this brief (R10.3) and requires founder approval, not an editorial change set.
 
-**P-5 has consequently been excluded from the editorial diff** in `d10a-editorial-change-set-proposed-diff.md`. This is a deliberate scope correction, not an omission.
+**P-5 has consequently been excluded from the editorial diff** in `d10a-editorial-change-set-proposed-diff.md`. This is a deliberate scope correction, not an omission. It is covered here as R10.3 and requires founder approval.
+
+### 12.1 Two deliberate deviations from the audit's own P-4 sketch
+
+For completeness, this brief does not adopt the audit's P-4 wording as written:
+
+| Audit P-4 wording | This brief | Why |
+|---|---|---|
+| "cumulative shipping refunds ... may not exceed `S_net`" | Ceiling is `CB = S_net + Chg_add` | `Chg_add` is money the customer paid for shipping after acceptance. Excluding it would make a re-ship charge permanently unrefundable. §9 |
+| "the order-level residual by `S_net − Σ attributable refunded`" | Order-scoped lines capped through the **combined** `R + Disc` order ceiling, with order-scoped amounts excluded from the unit partition | A residual-minus-attributable formulation caps refunds only; it leaves a post-fulfilment *discount* of the same amount uncapped, which is the double-return hole in §8 row 3 |
+
+Both deviations are proposed, not applied. The founder may prefer the audit's narrower `S_net` basis; if so, `Chg_add` needs its own separately named ceiling and the double-return case needs a different guard.
 
 ---
 
