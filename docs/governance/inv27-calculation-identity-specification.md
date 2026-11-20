@@ -205,6 +205,41 @@ Detailed design is outstanding; the required coverage follows from the above.
 7. A deliberately mis-decomposed Δ (buckets not summing to Δ) fails the reconciliation rather than absorbing the residual.
 8. A cross-view figure requested without an artifact identity is refused.
 
+### Reconciliation rules (normative)
+
+| ID | Rule | Enforcement |
+|---|---|---|
+| RR-27-1 | A stored figure must carry all eight identity elements. A figure missing any element is unreadable, not defaulted. | Read path rejects |
+| RR-27-2 | Aggregation is permitted only within one identity. Any cross-identity aggregate is a reconciliation, never a sum. | Aggregate path rejects |
+| RR-27-3 | A cross-view comparison must reference an artifact identity and its four-bucket decomposition; the buckets must sum exactly to Δ. | Artifact validation |
+| RR-27-4 | Δ_cumulative must be attributable entirely to `source_data_boundary` change plus quantity-change buckets. Any unattributed remainder fails the reconciliation. | Closure check (§3.2) |
+| RR-27-5 | `source_data_boundary` must increase monotonically per identity lineage. A decrease indicates a restore or a defect and must block. | Boundary validator |
+| RR-27-6 | A never-shipped unit contributes exactly zero to Δ_cumulative. | Closure check |
+| RR-27-7 | Recomputation of an identity must reproduce its stored figures exactly; divergence is a defect, not a new version. | Reproducibility check |
+| RR-27-8 | A new calculation version produces a new identity; historical figures remain readable under their own identity and are never overwritten. | Version validator |
+
+### Test cases
+
+**None executed.** Each case states inputs, expected output and the failure mode it proves.
+
+| ID | Test | Input | Expected | Proves |
+|---|---|---|---|---|
+| TC-27-01 | Missing `calculation_view` | Omit view from identity | Error, no default | Fail-closed on the founder-critical element |
+| TC-27-02 | Missing each other element | Omit tenant / store / currency / period / timezone / version / boundary in turn | Error each time | No element is optional |
+| TC-27-03 | Reproducibility | Recompute an identity twice from identical inputs | Byte-identical figures | Determinism |
+| TC-27-04 | Boundary advance creates new identity | Same period, boundary 1,000 → 1,250 | New identity; delta attributed to late arrivals | §3.1 bucket A |
+| TC-27-05 | Cross-version aggregation blocked | Sum figures from v1 and v2 | Refused | RR-27-2, RR-27-8 |
+| TC-27-06 | Cross-currency aggregation blocked | Sum USD and EUR figures | Refused | RR-27-2 |
+| TC-27-07 | Cross-tenant aggregation blocked | Sum two tenants | Refused | RR-27-2; pairs with CT tests |
+| TC-27-08 | Cross-view aggregation blocked | Sum Commercial and Fulfilment figures | Refused | RR-27-2 |
+| TC-27-09 | Worked example reproduces | §4 inputs | Δ(Jan) = 5,300; Δ(Feb) = −5,200; Δ_cumulative = 100 | The example is arithmetically correct |
+| TC-27-10 | Never-shipped contributes zero | Order placed in Jan, never shipped | Zero contribution to Δ_cumulative | RR-27-6 |
+| TC-27-11 | Mis-decomposed Δ fails | Buckets that do not sum to Δ | Reconciliation fails; residual not absorbed | RR-27-4 |
+| TC-27-12 | Unattributed remainder rejected | Δ with no explainable cause | Failure, not a plug | RR-27-4 |
+| TC-27-13 | Boundary decrease blocks | Boundary 1,250 → 1,000 | Blocked | RR-27-5 (restore detection) |
+| TC-27-14 | Unqualified cross-view figure refused | Request comparison without artifact identity | Refused | RR-27-3 |
+| TC-27-15 | Historical figure remains readable | Add calculation v2 | v1 figures readable under v1 identity | RR-27-8 |
+
 **None of these tests exists.** No database, schema or code exists.
 
 ---
@@ -228,7 +263,7 @@ Detailed design is outstanding; the required coverage follows from the above.
 | Fail-closed behaviour | **Required by founder**; rules proposed here |
 | Reconciliation artifact and decomposition | Proposed here |
 | Cumulative closure identity | Proposed here |
-| Test design | **Outstanding** |
+| Test design | **Delivered here (TC-27-01 – TC-27-15, RR-27-1 – RR-27-8); not executed** |
 | Implementation | None |
 | Empirical verification | None |
 

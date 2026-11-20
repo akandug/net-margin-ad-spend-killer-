@@ -277,6 +277,43 @@ Detailed test design remains outstanding, but the required coverage follows dire
 7. `indeterminate` blocks merchant-visible profitability and automated action.
 8. S1–S8 reproduce the stated treatments exactly.
 
+### Fail-closed conditions (normative)
+
+These are the conditions under which the engine must refuse rather than degrade. They are listed separately from the test cases because a test can pass while a fail-closed rule is missing.
+
+| ID | Condition | Required behaviour |
+|---|---|---|
+| FC-26-1 | A unit has no derivable value in any dimension | Refuse; do not default to `not_returned` or `unfulfilled` |
+| FC-26-2 | An impossible combination is derived (any row of §4) | Data-integrity exception; quarantine the source event; no coercion to a "nearest valid" state |
+| FC-26-3 | Any dimension is `indeterminate` | Block merchant-visible profitability and all automated action for the affected line, order and aggregates containing it |
+| FC-26-4 | A refund event arrives for a unit whose P dimension is `unpaid` | Integrity violation; block (T-14-adjacent: cannot refund what was never charged) |
+| FC-26-5 | A disposition event arrives without a preceding return event | Integrity violation; block |
+| FC-26-6 | Fulfilment quantity exceeds ordered quantity, or disposition quantity exceeds returned quantity | Block; never clamp silently |
+| FC-26-7 | Events for one unit cannot be totally ordered (same timestamp, conflicting content) | Block; do not resolve by ingestion order |
+
+### Test cases
+
+Each case states the event sequence, the expected derived dimensions and the expected financial consequence. **None has been executed.**
+
+| ID | Scenario | Events | Expected F | Expected D | Expected P | Expected financial consequence |
+|---|---|---|---|---|---|---|
+| TC-26-01 | Partial shipment (S1) | order(3 units) → ship(A,B) | `partially_fulfilled` | `not_returned` | `paid` | A,B revenue and COGS recognised at shipment; C pending |
+| TC-26-02 | Full shipment, second shipment (S1 cont.) | ship(C) | `fulfilled` | `not_returned` | `paid` | C recognised; line complete |
+| TC-26-03 | Partial cancellation (S2) | order(3) → cancel(C) | `partially_fulfilled` | `not_returned` | `partially_refunded` | C's revenue never recognised; cancellation release event, not an edit |
+| TC-26-04 | Return, restocked (S3) | ship(A) → return(A) → inspect(restock) | `fulfilled` | `returned_restockable` | `partially_refunded` | COGS **restored**; exactly one cost reversal; no second cost |
+| TC-26-05 | Return, damaged (S4) | ship(A) → return(A) → inspect(damaged) | `fulfilled` | `returned_damaged` | `partially_refunded` | COGS **retained**; no additional write-off cost line |
+| TC-26-06 | Refund requested, in transit (S5) | ship(A) → refund_requested(A) | `fulfilled` | `return_in_transit` | `refund_requested` | **No revenue reversal yet**; shipping cost incurred |
+| TC-26-07 | Refund pending (S6) | … → refund_pending(A) | `fulfilled` | `return_in_transit` | `refund_pending` | **Still no reversal**; provisional status only |
+| TC-26-08 | Refund completed, disposition unknown (S7) | … → refund_completed(A) | `fulfilled` | `not_returned` or `indeterminate` | `refunded` | Revenue reversed on refund date; **COGS treatment blocked pending disposition** |
+| TC-26-09 | Refund reversed (S8) | … → refund_reversed(A) | `fulfilled` | per prior return state | `paid` | Reversal of the reversal; net position restored via new events |
+| TC-26-10 | Dimension independence | ship(A) → refund(A) | unchanged by refund | unchanged by refund | `refunded` | Proves P folds from payment events only |
+| TC-26-11 | Independence, other direction | return(A) | unchanged by return | changes | unchanged by return | Proves D and P are independent |
+| TC-26-12 | FC-26-2 impossible combination | refund_completed without any payment event | — | — | — | Rejected as integrity exception, **not coerced** |
+| TC-26-13 | FC-26-2 restock without return | inspect(restock) with no return event | — | — | — | Rejected |
+| TC-26-14 | FC-26-6 over-fulfilment | ship 4 of 3 ordered | — | — | — | Rejected; no clamping |
+| TC-26-15 | FC-26-3 indeterminate blocks visibility | any dimension indeterminate | — | — | — | Line excluded from merchant-visible profit; aggregates containing it blocked |
+| TC-26-16 | Derivation not stored | any of the above | — | — | — | No unit-state column exists; recomputation from events yields identical values |
+
 **None of these tests exists.** No database, schema or code exists. This is a specification.
 
 ---
@@ -290,7 +327,7 @@ Detailed test design remains outstanding, but the required coverage follows dire
 | Three-dimension specification | **Delivered here; awaiting founder approval** |
 | Transition rules | Proposed |
 | Combination → treatment matrix | Proposed |
-| Detailed test design | **Outstanding** |
+| Detailed test design | **Delivered here (TC-26-01 – TC-26-16, FC-26-1 – FC-26-7); not executed** |
 | Implementation | None |
 | Empirical verification | None |
 
