@@ -56,18 +56,34 @@ Reductions are **additive and order-insensitive in total**. They are never edits
 ### 2.3 Derived values
 
 ```
-effective_allocation(u) = A(u) − Σ reductions with scope u
+effective_allocation(u) = A(u) − Σ unit-scoped reductions with scope u
 recognised_revenue(u)   = recognised(u) ? effective_allocation(u) : 0
 net_shipping_revenue    = Σ_u recognised_revenue(u) − Σ order-scoped reductions
 ```
 
-### 2.4 Conservation
+Note the asymmetry, which §2.4 makes precise: **unit-scoped** reductions reduce a unit's allocation; **order-scoped** reductions do not, and are deducted from net revenue as their own line, once, in their effective period.
+
+### 2.4 Conservation — two separate identities
+
+Rev 1 of this brief stated a single conservation formula that added unit reductions and order-scoped reductions together against `CB`. **That was wrong: it double-counts.** Order-scoped reductions never touch a unit's allocation, so adding them to the unit side inflates the total. The corrected statement is two identities, not one.
+
+**(a) Allocation identity** — the unit allocations are fully accounted for by unit-scoped reductions alone:
 
 ```
-Σ_u effective_allocation(u) + Σ_u reductions(u) + Σ order-scoped reductions = CB
+Σ_u effective_allocation(u) + Σ_u unit_scoped_reductions(u) = Σ_u A(u) = CB
 ```
 
-This is the conservation test proposed as PROP-D in the invariant matrix.
+**(b) Order-scoped reductions are a separate line** and are not part of the allocation identity:
+
+```
+net_shipping_revenue = Σ_{recognised u} effective_allocation(u) − Σ order_scoped_reductions
+```
+
+Worked check on P3-R1 (order-scoped 200 only): `Σ A = 1,000`, no unit reductions, so identity (a) gives `1,000 + 0 = 1,000` ✓. Net revenue `= 1,000 − 200 = 800` ✓. Adding the 200 to the unit side would give 1,200 against a `CB` of 1,000 — the defect this correction removes.
+
+**Period assignment of an order-scoped reduction happens exactly once**, in its own effective period, never in every period the order spans. Without that rule the 200 would be deducted twice for an order spanning February and March.
+
+Identity (a) is the conservation test proposed as PROP-D in the invariant matrix.
 
 ### 2.5 What this replaces
 
